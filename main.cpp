@@ -17,9 +17,7 @@ int data_address = DATA_START;
 int mode = 0; // 0 -> .text, 1 -> .data
 
 bool isNumber(const string &s) {
-    if (s.empty()) return false;
-    if (s[0] == '-' || s[0] == '+') return all_of(s.begin() + 1, s.end(), ::isdigit);
-    return all_of(s.begin(), s.end(), ::isdigit);
+    return !s.empty() && (isdigit(s[0]) || s[0] == '-' || s[0] == '+');
 }
 
 vector<string> tokenize(string instruct) {
@@ -28,16 +26,18 @@ vector<string> tokenize(string instruct) {
     string token;
     while (ss >> token) {
         if (token[0] == '#') break; // Ignore comments
-        if (token.back() == ':') token.pop_back(); 
+        if (token.back() == ':') {
+            labelAddress[token.substr(0, token.size() - 1)] = text_address;
+            continue;
+        }
         tokens.push_back(token);
     }
     return tokens;
 }
-
 string generateBinaryCode(vector<string> &tokens) {
     string binary_code;
 
-    if (r_opcode.find(tokens[0]) != r_opcode.end()) {
+    if (r_opcode.find(tokens[0]) != r_opcode.end()) {  // R-type
         if (tokens.size() < 4) {
             cerr << "Error: Invalid R-type instruction format -> " << tokens[0] << endl;
             return "";
@@ -55,101 +55,166 @@ string generateBinaryCode(vector<string> &tokens) {
         string rd = dec_to_bin(stoi(tokens[1]), 5);
         string rs1 = dec_to_bin(stoi(tokens[2]), 5);
         string rs2 = dec_to_bin(stoi(tokens[3]), 5);
-        binary_code = r_func7[tokens[0]] + rs2 + rs1 + r_func3[tokens[0]] + rd + r_opcode[tokens[0]];
+        string func7 = r_func7[tokens[0]];
+        string func3 = r_func3[tokens[0]];
+        string opcode = r_opcode[tokens[0]];
+
+        binary_code = func7 + rs2 + rs1 + func3 + rd + opcode;
     }
-    else if (i_opcode.find(tokens[0]) != i_opcode.end()) {
-        if (tokens.size() < 4) {
-            cerr << "Error: Invalid I-type instruction format -> " << tokens[0] << endl;
-            return "";
-        }
-
-        tokens[1].erase(0, 1);
-        tokens[2].erase(0, 1);
-
-        if (!isNumber(tokens[1]) || !isNumber(tokens[2])) {
-            cerr << "Error: Invalid register number in I-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-
-        string rd = dec_to_bin(stoi(tokens[1]), 5);
-        string rs1 = dec_to_bin(stoi(tokens[2]), 5);
-        string imm = isNumber(tokens[3]) ? dec_to_bin(stoi(tokens[3]), 12) : "";
-
-        if (imm.empty()) {
-            cerr << "Error: Invalid immediate value in I-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-
-        binary_code = imm + rs1 + i_func3[tokens[0]] + rd + i_opcode[tokens[0]];
+    // Handle Load Instructions (I-type)
+else if (load_opcode.find(tokens[0]) != load_opcode.end()) {  
+    if (tokens.size() < 3) {
+        cerr << "Error: Invalid load instruction format -> " << tokens[0] << endl;
+        return "";
     }
-    else if (sb_func3.find(tokens[0]) != sb_func3.end()) {
-        if (tokens.size() < 4) {
-            cerr << "Error: Invalid SB-type instruction format -> " << tokens[0] << endl;
-            return "";
-        }
 
-        tokens[1].erase(0, 1);
-        tokens[2].erase(0, 1);
+    tokens[1].erase(0, 1); // Remove 'x' from register
 
-        if (!isNumber(tokens[1]) || !isNumber(tokens[2])) {
-            cerr << "Error: Invalid register in SB-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-
-        string rs1 = dec_to_bin(stoi(tokens[1]), 5);
-        string rs2 = dec_to_bin(stoi(tokens[2]), 5);
-
-        if (labelAddress.find(tokens[3]) == labelAddress.end()) {
-            cerr << "Error: Undefined label in SB-type instruction -> " << tokens[3] << endl;
-            return "";
-        }
-
-        int offset = labelAddress[tokens[3]] - text_address;
-        string imm = dec_to_bin(offset, 13);
-        binary_code = imm[0] + imm.substr(2, 6) + rs2 + rs1 + sb_func3[tokens[0]] + imm.substr(8, 4) + imm[1] + "1100011";
+    // Extract immediate and base register from "imm(rs1)" format
+    size_t openParen = tokens[2].find('(');
+    size_t closeParen = tokens[2].find(')');
+    if (openParen == string::npos || closeParen == string::npos) {
+        cerr << "Error: Invalid format for load instruction -> " << tokens[0] << endl;
+        return "";
     }
-    else if (s_opcode.find(tokens[0]) != s_opcode.end()) {
-        if (tokens.size() < 4) {
+
+    string imm_str = tokens[2].substr(0, openParen);  // Immediate value
+    string rs1_str = tokens[2].substr(openParen + 2, closeParen - openParen - 2); // Register number (skip 'x')
+
+    if (!isNumber(tokens[1]) || !isNumber(rs1_str) || !isNumber(imm_str)) {
+        cerr << "Error: Invalid register or immediate value in load instruction -> " << tokens[0] << endl;
+        return "";
+    }
+
+    int imm_value = stoi(imm_str);
+
+    // Ensure immediate value is within 12-bit signed range
+    if (imm_value < -2048 || imm_value > 2047) {
+        cerr << "Error: Immediate value out of range for load instruction -> " << tokens[0] << endl;
+        return "";
+    }
+
+    string rd = dec_to_bin(stoi(tokens[1]), 5);
+    string rs1 = dec_to_bin(stoi(rs1_str), 5);
+    string imm = dec_to_bin(imm_value, 12);
+    string func3 = load_func3[tokens[0]];
+    string opcode = load_opcode[tokens[0]];
+
+    binary_code = imm + rs1 + func3 + rd + opcode;
+} 
+
+// Handle Other I-type Instructions
+else if (i_opcode.find(tokens[0]) != i_opcode.end()) {  
+    if (tokens.size() < 4) {
+        cerr << "Error: Invalid I-type instruction format -> " << tokens[0] << endl;
+        return "";
+    }
+
+    tokens[1].erase(0, 1); // Remove 'x' from register
+    tokens[2].erase(0, 1); 
+
+    if (!isNumber(tokens[1]) || !isNumber(tokens[2])) {
+        cerr << "Error: Invalid register number in I-type instruction -> " << tokens[0] << endl;
+        return "";
+    }
+
+    int imm_value;
+    try {
+        imm_value = stoi(tokens[3]);
+    } catch (...) {
+        cerr << "Error: Invalid immediate value in I-type instruction -> " << tokens[0] << endl;
+        return "";
+    }
+
+    // Ensure immediate value is within 12-bit signed range
+    if (imm_value < -2048 || imm_value > 2047) {
+        cerr << "Error: Immediate value out of range for I-type instruction -> " << tokens[0] << endl;
+        return "";
+    }
+
+    string rd = dec_to_bin(stoi(tokens[1]), 5);
+    string rs1 = dec_to_bin(stoi(tokens[2]), 5);
+    string imm = dec_to_bin(imm_value, 12);
+    string func3 = i_func3[tokens[0]];
+    string opcode = i_opcode[tokens[0]];
+
+    binary_code = imm + rs1 + func3 + rd + opcode;
+}
+
+    
+    else if (s_opcode.find(tokens[0]) != s_opcode.end()) {  // S-type (Store Instructions)
+        if (tokens.size() < 3) {
             cerr << "Error: Invalid S-type instruction format -> " << tokens[0] << endl;
             return "";
         }
     
-        tokens[1].erase(0, 1); // Remove 'x' from register
-        tokens[2].erase(0, 1); 
+        tokens[1].erase(0, 1); // Remove 'x' from rs2
     
-        if (!isNumber(tokens[1]) || !isNumber(tokens[2])) {
-            cerr << "Error: Invalid register in S-type instruction -> " << tokens[0] << endl;
+        // Extract immediate and base register from "imm(rs1)" format
+        size_t openParen = tokens[2].find('(');
+        size_t closeParen = tokens[2].find(')');
+        if (openParen == string::npos || closeParen == string::npos) {
+            cerr << "Error: Invalid format for store instruction -> " << tokens[0] << endl;
+            return "";
+        }
+    
+        string imm_str = tokens[2].substr(0, openParen);  // Immediate value
+        string rs1_str = tokens[2].substr(openParen + 2, closeParen - openParen - 2); // Register number (skip 'x')
+    
+        if (!isNumber(tokens[1]) || !isNumber(rs1_str) || !isNumber(imm_str)) {
+            cerr << "Error: Invalid register or immediate value in store instruction -> " << tokens[0] << endl;
+            return "";
+        }
+    
+        int imm_value = stoi(imm_str);
+    
+        // Ensure immediate value is within 12-bit signed range
+        if (imm_value < -2048 || imm_value > 2047) {
+            cerr << "Error: Immediate value out of range for S-type instruction -> " << tokens[0] << endl;
             return "";
         }
     
         string rs2 = dec_to_bin(stoi(tokens[1]), 5);
-        string rs1 = dec_to_bin(stoi(tokens[2]), 5);
-    
-        // Handle immediate value (e.g., sw x10, 12(x11))
-        size_t parenPos = tokens[3].find('(');
-        if (parenPos == string::npos) {
-            cerr << "Error: Invalid memory access format in S-type -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        int imm = stoi(tokens[3].substr(0, parenPos));
-        string imm_bin = dec_to_bin(imm, 12);
+        string rs1 = dec_to_bin(stoi(rs1_str), 5);
+        string imm_bin = dec_to_bin(imm_value, 12);
         string imm_high = imm_bin.substr(0, 7);
         string imm_low = imm_bin.substr(7, 5);
-        
         string func3 = s_func3[tokens[0]];
         string opcode = s_opcode[tokens[0]];
     
         binary_code = imm_high + rs2 + rs1 + func3 + imm_low + opcode;
     }
-
-    else if (u_opcode.find(tokens[0]) != u_opcode.end()) {
+    
+    else if (sb_func3.find(tokens[0]) != sb_func3.end()) {  // SB-type
+        if (tokens.size() < 4) {
+            cerr << "Error: Invalid SB-type instruction format -> " << tokens[0] << endl;
+            return "";
+        }
+    
+        tokens[1].erase(0, 1);
+        tokens[2].erase(0, 1);
+    
+        if (!isNumber(tokens[1]) || !isNumber(tokens[2])) {
+            cerr << "Error: Invalid register in SB-type instruction -> " << tokens[0] << endl;
+            return "";
+        }
+    
+        string rs1 = dec_to_bin(stoi(tokens[1]), 5);
+        string rs2 = dec_to_bin(stoi(tokens[2]), 5);
+        int offset = labelAddress[tokens[3]] - text_address;
+        string imm = dec_to_bin(offset, 13);
+        string imm_high = imm[0] + imm.substr(2, 6);
+        string imm_low = imm.substr(8, 4) + imm[1];
+        string func3 = sb_func3[tokens[0]];
+    
+        binary_code = imm_high + rs2 + rs1 + func3 + imm_low + "1100011";
+    }
+    else if (u_opcode.find(tokens[0]) != u_opcode.end()) {  // U-type
         if (tokens.size() < 3) {
             cerr << "Error: Invalid U-type instruction format -> " << tokens[0] << endl;
             return "";
         }
     
-        // Remove 'x' from rd register
         tokens[1].erase(0, 1);
     
         if (!isNumber(tokens[1])) {
@@ -158,49 +223,30 @@ string generateBinaryCode(vector<string> &tokens) {
         }
     
         string rd = dec_to_bin(stoi(tokens[1]), 5);
+        string imm = dec_to_bin(stoi(tokens[2]), 20);
+        string opcode = u_opcode[tokens[0]];
     
-        // Immediate value should be 20-bit
-        if (!isNumber(tokens[2])) {
-            cerr << "Error: Invalid immediate in U-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        int imm_value = stoi(tokens[2]);
-    
-        // Ensure the immediate value is within the 20-bit range
-        if (imm_value < -524288 || imm_value > 524287) {
-            cerr << "Error: Immediate value out of range for U-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        string imm = dec_to_bin(imm_value, 20);
-    
-        binary_code = imm + rd + u_opcode[tokens[0]];
+        binary_code = imm + rd + opcode;
     }
-    
-    else if (tokens[0] == "jal") {
+    else if (tokens[0] == "jal") {  // UJ-type
         if (tokens.size() < 3) {
             cerr << "Error: Invalid JAL instruction format -> " << tokens[0] << endl;
             return "";
         }
-
+    
         tokens[1].erase(0, 1);
-
+    
         if (!isNumber(tokens[1])) {
             cerr << "Error: Invalid register in JAL instruction -> " << tokens[0] << endl;
             return "";
         }
-
+    
         string rd = dec_to_bin(stoi(tokens[1]), 5);
-
-        if (labelAddress.find(tokens[2]) == labelAddress.end()) {
-            cerr << "Error: Undefined label in JAL instruction -> " << tokens[2] << endl;
-            return "";
-        }
-
         int offset = labelAddress[tokens[2]] - text_address;
         string imm = dec_to_bin(offset, 21);
-        binary_code = imm[0] + imm.substr(10, 10) + imm[9] + imm.substr(1, 8) + rd + "1101111";
+        string opcode = "1101111";
+    
+        binary_code = imm[0] + imm.substr(10, 10) + imm[9] + imm.substr(1, 8) + rd + opcode;
     }
     else {
         cerr << "Error: Unrecognized instruction -> " << tokens[0] << endl;
@@ -209,31 +255,46 @@ string generateBinaryCode(vector<string> &tokens) {
     return binary_code;
 }
 
-void resetFile(ifstream &fin) {
+
+void firstPass(ifstream &fin) {
+    string line;
+    while (getline(fin, line)) {
+        vector<string> tokens = tokenize(line);
+        if (tokens.empty()) continue;
+        
+        if (tokens[0] == ".data") { mode = 1; continue; }
+        if (tokens[0] == ".text") { mode = 0; continue; }
+        
+        if (tokens[0].back() == ':') {
+            labelAddress[tokens[0]] = (mode == 0) ? text_address : data_address;
+        } else if (mode == 0) {
+            text_address += 4;
+        } else if (mode == 1) {
+            data_address += 4;
+        }
+    }
+    text_address = CODE_START;
+    data_address = DATA_START;
     fin.clear();
     fin.seekg(0);
 }
 
-void processInstruction(ofstream &fout, vector<string> &tokens, int &text_address) {
+void processInstruction(ofstream &fout, vector<string> &tokens) {
     if (tokens.empty()) return;
 
     string binary_code = generateBinaryCode(tokens);
-    if (binary_code.empty()) {
-        cerr << "Error: Failed to generate binary code for instruction: ";
-        for (const auto &token : tokens) cerr << token << " ";
-        cerr << endl;
-        return;
-    }
+    if (binary_code.empty()) return;
 
-    string hex_code = bin_to_hex(binary_code);
+    string cleaned_binary = binary_code;
+    cleaned_binary.erase(remove(cleaned_binary.begin(), cleaned_binary.end(), '-'), cleaned_binary.end());
+
+    string hex_code = bin_to_hex(cleaned_binary);
+
     fout << "0x" << setw(8) << setfill('0') << hex << text_address
          << " 0x" << setw(8) << setfill('0') << hex << hex_code
          << " , " << tokens[0];
 
-    for (size_t i = 1; i < tokens.size(); i++) {
-        fout << " " << tokens[i];
-    }
-
+    for (size_t i = 1; i < tokens.size(); i++) fout << " " << tokens[i];
     fout << " # " << binary_code << endl;
     text_address += 4;
 }
@@ -246,7 +307,7 @@ void processDataSegment(ofstream &fout, vector<string> &tokens, int &data_addres
     if (sizeMap.find(tokens[1]) != sizeMap.end()) {
         int increment = sizeMap[tokens[1]];
         size_t numValues = tokens.size() - 2;
-        if (numValues == 0) numValues = 1; // No values assigned
+        if (numValues == 0) numValues = 1;
 
         for (size_t i = 2; i < tokens.size(); i++) {
             try {
@@ -260,7 +321,6 @@ void processDataSegment(ofstream &fout, vector<string> &tokens, int &data_addres
             data_address += increment;
         }
 
-        // Fill remaining uninitialized slots with zero
         if (tokens.size() == 2) {
             fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x00000000" << endl;
             data_address += increment;
@@ -280,7 +340,6 @@ void processDataSegment(ofstream &fout, vector<string> &tokens, int &data_addres
     }
 }
 
-
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         cerr << "Usage: " << argv[0] << " <input.asm> <output.mc>" << endl;
@@ -296,31 +355,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    firstPass(fin);
     string line;
-    int data_address = 0x10000000;
-
-    // First Pass
-    while (getline(fin, line)) {
-        vector<string> tokens = tokenize(line);
-        if (tokens.empty()) continue;
-
-        if (tokens[0] == ".data") { mode = 1; continue; }
-        if (tokens[0] == ".text") { mode = 0; continue; }
-
-        if (tokens[0].back() == ':') {
-            labelAddress[tokens[0]] = (mode == 0) ? text_address : data_address;
-        } else if (mode == 0) {
-            text_address += 4;
-        } else if (mode == 1) {
-            data_address += 4;
-        }
-    }
-
-    resetFile(fin);
-    text_address = CODE_START;
-    data_address = 0x10000000;
-
-    // Second Pass
     while (getline(fin, line)) {
         vector<string> tokens = tokenize(line);
         if (tokens.empty()) continue;
@@ -329,7 +365,7 @@ int main(int argc, char *argv[]) {
         if (tokens[0] == ".text") { mode = 0; continue; }
 
         if (mode == 0) {
-            processInstruction(fout, tokens, text_address);
+            processInstruction(fout, tokens);
         } else if (mode == 1) {
             processDataSegment(fout, tokens, data_address, line);
         }

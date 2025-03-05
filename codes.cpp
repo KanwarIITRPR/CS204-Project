@@ -8,6 +8,8 @@ map<string, string> r_func3;
 map<string, string> r_opcode;
 map<string, string> i_opcode;
 map<string, string> i_func3;
+map<string, string> load_opcode;
+map<string, string> load_func3;
 map<string, string> s_opcode;
 map<string, string> s_func3;
 map<string, string> sb_opcode;
@@ -59,19 +61,19 @@ void defineAllCodes()
     i_opcode["addi"] = "0010011";
     i_opcode["andi"] = "0010011";
     i_opcode["ori"] = "0010011";
-    i_opcode["lb"] = "0000011";
-    i_opcode["ld"] = "0000011";
-    i_opcode["lh"] = "0000011";
-    i_opcode["lw"] = "0000011";
+    load_opcode["lb"] = "0000011";
+    load_opcode["ld"] = "0000011";
+    load_opcode["lh"] = "0000011";
+    load_opcode["lw"] = "0000011";
     i_opcode["jalr"] = "1100111";
 
     i_func3["addi"] = "000";
     i_func3["andi"] = "111";
     i_func3["ori"] = "110";
-    i_func3["lb"] = "000";
-    i_func3["ld"] = "011";
-    i_func3["lh"] = "001";
-    i_func3["lw"] = "010";
+    load_func3["lb"] = "000";
+    load_func3["ld"] = "011";
+    load_func3["lh"] = "001";
+    load_func3["lw"] = "010";
     i_func3["jalr"] = "000";
 
     s_opcode["sb"] = "0100011";
