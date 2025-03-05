@@ -47,7 +47,7 @@ void defineAllCodes()
 
     r_func3["add"] = "000";
     r_func3["and"] = "111";
-    r_func3["or"] = "000";
+    r_func3["or"] = "110";
     r_func3["sll"] = "001";
     r_func3["slt"] = "010";
     r_func3["sra"] = "101";
