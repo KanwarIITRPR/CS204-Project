@@ -1,9 +1,19 @@
+
+.data 
+
+
+arr: .word 10
+valarr: .asciz "I am IIT"
+some: .byte 11
+arr23: .word 10 20 30 40 50 
+arr4: .word 10
+
 .text
 addi x1 x0 2
 addi x2 x0 2
 # SB-type (Branch) Instructions
-beq x1, x2, label1
-bne x3, x4, label2
+beq x1, x2, label2
+bne x11, x4, label1
 blt x5, x6, label3
 bge x7, x8, label4
 
