@@ -26,6 +26,41 @@ string machineCode;
 vector<string> machineCodeDivision(7);
 
 void NextInstruction() { getline(fin, instruction); }
+bool isNumber(const string &s) {
+    return !s.empty() && (isdigit(s[0]) || s[0] == '-' || s[0] == '+');
+}
+
+bool IsValidRegister(const string &reg) {
+    // Registers need to start with "x<regID>" where regID is the location/ID of the register, a number
+    if (reg[0] != 'x') return false;
+    if (!isdigit(reg[1])) return false;
+    string regID = reg.substr(1, reg.length() - 1);
+
+    // Register values can't contain additional 0s in the start, i.e., x01 is invalid
+    if (stoi(regID) != 0 && regID[0] == '0') return false;
+    // Register location/ID should be within the range x0-x31
+    if (!(stoi(regID) >= 0 && stoi(regID) <= 31)) return false;
+    return true;
+}
+
+vector<string> offsetRegisterCommands = {"lb", "lh", "lw", "ld", "jalr", "sb", "sh", "sw", "sd"};
+bool IsOffsetRegisterAllowed() {
+    for (string command : offsetRegisterCommands) {
+        if (command == tokens[0]) return true;
+    }
+    return false;
+}
+
+// string::npos is the value return by "string" functions when they fail
+bool IsOffsetRegisterCombination() { return !(tokens[2].find('(') == string::npos || tokens[2].find(')') == string::npos); }
+
+void StandardizeOffsetRegisterCombination() {
+    int openParenthesisIndex = tokens[2].find('(');
+    int closeParenthesisIndex = tokens[2].find(')');
+
+    tokens.push_back(tokens[2].substr(0, openParenthesisIndex));
+    tokens[2] = tokens[2].substr(openParenthesisIndex + 1, closeParenthesisIndex - openParenthesisIndex - 1);
+}
 
 // Identify Labels
 // Call NextInstruction() before calling tokenize
@@ -44,12 +79,22 @@ vector<string> Tokenize() {
 
 
 void R_FormatDivision() {
+    if (tokens.size() != 4) {
+        cerr << "Invalid instruction for a R-Format operation" << endl;
+        return;
+    }
+
     string opcode = r_opcode[tokens[0]];
     string rd = tokens[1];
     string funct3 = r_func3[tokens[0]];
     string rs1 = tokens[2];
     string rs2 = tokens[3];
     string funct7 = r_func7[tokens[0]];
+
+    if (!(IsValidRegister(rd) && IsValidRegister(rs1) && IsValidRegister(rs2))) {
+        cerr << "Invalid register name!" << endl;
+        return;
+    }
 
     rd.erase(0, 1);
     rs1.erase(0, 1);
@@ -66,13 +111,33 @@ void R_FormatDivision() {
     machineCode = funct7 + rs2 + rs1 + funct3 + rd + opcode;
 }
 
-// Convert offset(register) to valid arguments for load
 void I_FormatDivision() {
+    if (tokens.size() == 3) {
+        if (IsOffsetRegisterAllowed() && IsOffsetRegisterCombination()) StandardizeOffsetRegisterCombination();
+        else {
+            cerr << "Expected offset-register value" << endl;
+            return;
+        }
+    } else if (tokens.size() != 4) {
+        cerr << "Invalid Instruction for I-Format operation" << endl;
+        return;
+    }
+
     string opcode = i_opcode[tokens[0]];
     string rd = tokens[1];
     string funct3 = i_func3[tokens[0]];
     string rs1 = tokens[2];
     string immediate = tokens[3];
+
+    if (!(IsValidRegister(rd) && IsValidRegister(rs1))) {
+        cerr << "Invalid register name!" << endl;
+        return;
+    }
+
+    if (!(stoi(immediate) >= -2048 && stoi(immediate) <= 2047)) {
+        cerr << "Immediate value out of range!" << endl;
+        return;
+    }
     
     rd.erase(0, 1);
     rs1.erase(0, 1);
@@ -88,13 +153,32 @@ void I_FormatDivision() {
     machineCode = immediate + rs1 + funct3 + rd + opcode;
 }
 
-// Convert offset(register) to valid arguments
 void S_FormatDivision() {
+    if (tokens.size() != 3) {
+        cerr << "Invalid Instruction for I-Format operation" << endl;
+        return;
+    } else if (!IsOffsetRegisterCombination()) {
+        cerr << "Expected offset-register value" << endl;
+        return;
+    }
+
+    StandardizeOffsetRegisterCombination();
+
     string opcode = s_opcode[tokens[0]];
     string funct3 = s_func3[tokens[0]];
     string rs1 = tokens[1];
     string rs2 = tokens[2];
     string immediate = tokens[3];
+
+    if (!(IsValidRegister(rs1) && IsValidRegister(rs2))) {
+        cerr << "Invalid register name!" << endl;
+        return;
+    }
+
+    if (!(stoi(immediate) >= -2048 && stoi(immediate) <= 2047)) {
+        cerr << "Immediate value out of range!" << endl;
+        return;
+    }
     
     rs1.erase(0, 1);
     rs2.erase(0, 1);
@@ -115,11 +199,26 @@ void S_FormatDivision() {
 
 // Convert labels into relative addressing
 void SB_FormatDivision() {
+    if (tokens.size() != 4) {
+        cerr << "Invalid instruction for a SB-Format operation" << endl;
+        return;
+    }
+
     string opcode = sb_opcode[tokens[0]];
     string funct3 = sb_func3[tokens[0]];
     string rs1 = tokens[1];
     string rs2 = tokens[2];
     string immediate = tokens[3];
+
+    if (!(IsValidRegister(rs1) && IsValidRegister(rs2))) {
+        cerr << "Invalid register name!" << endl;
+        return;
+    }
+
+    if (!(stoi(immediate) >= -4096 && stoi(immediate) <= 4095)) {
+        cerr << "Immediate value out of range!" << endl;
+        return;
+    }
     
     rs1.erase(0, 1);
     rs2.erase(0, 1);
@@ -138,11 +237,25 @@ void SB_FormatDivision() {
     machineCode = upperImmediate + rs2 + rs1 + funct3 + lowerImmediate  + opcode;
 }
 
-// Check for bounds
 void U_FormatDivision() {
+    if (tokens.size() != 3) {
+        cerr << "Invalid instruction for a U-Format operation" << endl;
+        return;
+    }
+
     string opcode = u_opcode[tokens[0]];
     string rd = tokens[1];
     string immediate = tokens[2];
+
+    if (!IsValidRegister(rd)) {
+        cerr << "Invalid register name!" << endl;
+        return;
+    }
+
+    if (!(stoi(immediate) >= -pow(2, 20) && stoi(immediate) <= pow(2, 20) - 1)) {
+        cerr << "Immediate value out of range!" << endl;
+        return;
+    }
     
     rd.erase(0, 1);
     
@@ -158,9 +271,24 @@ void U_FormatDivision() {
 }
 
 void UJ_FormatDivision() {
+    if (tokens.size() != 3) {
+        cerr << "Invalid instruction for a UJ-Format operation" << endl;
+        return;
+    }
+
     string opcode = uj_opcode[tokens[0]];
     string rd = tokens[1];
     string immediate = tokens[2];
+
+    if (!IsValidRegister(rd)) {
+        cerr << "Invalid register name!" << endl;
+        return;
+    }
+
+    if (!(stoi(immediate) >= -pow(2, 20) && stoi(immediate) <= pow(2, 20) - 1)) {
+        cerr << "Immediate value out of range!" << endl;
+        return;
+    }
     
     rd.erase(0, 1);
 
@@ -177,7 +305,6 @@ void UJ_FormatDivision() {
     machineCode = adjustedImmediate + rd + opcode;
 }
 
-// Check for register bounds
 // Convert the registers and immediate values to hexadecimal format
 vector<string> ExtractMachineCode() {
     switch (instructionFormatMapping[tokens[0]]) {
@@ -267,10 +394,14 @@ int main(int argC, char* argV[]) {
     Tokenize();
     NextInstruction();
     Tokenize();
-    NextInstruction();
-    Tokenize();
-    NextInstruction();
-    Tokenize();
+    // NextInstruction();
+    // Tokenize();
+    // NextInstruction();
+    // Tokenize();
+    StandardizeOffsetRegisterCombination();
+    for (string token : tokens) {
+        cout << token << endl;
+    }
 
 
 
