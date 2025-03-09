@@ -26,14 +26,14 @@ int GetDecimalNumber(const string &s) {
     for (char digit : s) {
         if (!isdigit(digit)) {
             cerr << "Invalid Number";
-            return (int) nan;
+            return -1;
         }
     }
     return stoi(s);
 }
 
 string DecimalToBinary(int decimalNumber, int length = -1) {
-    if (!decimalNumber) return "0";
+    if (!decimalNumber) return string(length, '0');
 
     string binary = "";
     while (decimalNumber) {

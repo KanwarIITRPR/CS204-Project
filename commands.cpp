@@ -63,6 +63,8 @@ void InitializeInstructions() {
     instruction_format_mapping["bne"] = SB;
     instruction_format_mapping["bge"] = SB;
     instruction_format_mapping["blt"] = SB;
+    instruction_format_mapping["beqz"] = SB;
+    instruction_format_mapping["bnez"] = SB;
 
     instruction_format_mapping["lui"] = U;
     instruction_format_mapping["auipc"] = U;
@@ -330,10 +332,19 @@ void S_FormatDivision() {
 }
 
 void SB_FormatDivision() {
+    // Handle pseudo-instructions
+    if (tokens[0] == "beqz") {
+        tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
+        tokens[0] = "beq";
+    } else if (tokens[0] == "bnez") {
+        tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
+        tokens[0] = "bne"; 
+    }
+
     if (tokens.size() != 4) {
         cerr << "Invalid instruction for a SB-Format operation" << endl;
         return;
-    }
+    }    
 
     int offset = label_address[tokens[3]] - current_address;
 
@@ -456,7 +467,102 @@ void UJ_FormatDivision() {
     machineCode = adjustedImmediate + rd + opcode;
 }
 
+void PseudoInstructionHandler() {
+    if (tokens[0] == "j") {
+        // Convert 'j label' to 'jal x0, label'
+        tokens.insert(tokens.begin() + 1, "x0"); // Add x0 as the rd
+        tokens[0] = "jal"; // Change instruction to jal
+    }
+
+    if (tokens[0] == "li") {
+        if (tokens.size() != 3) {
+            cerr << "Invalid instruction for li pseudo-instruction" << endl;
+            return;
+        }
+    
+        string rd = tokens[1];
+    
+        // Check if the immediate is in hexadecimal format
+        int immediate;
+        if (tokens[2].find("0x") == 0 || tokens[2].find("0X") == 0) {
+            immediate = stoi(tokens[2], nullptr, 16); // Convert hex to integer
+        } else {
+            immediate = stoi(tokens[2]); // Convert decimal to integer
+        }
+    
+        if (!IsValidRegister(rd)) {
+            cerr << "Invalid register name!" << endl;
+            return;
+        }
+    
+        rd.erase(0, 1); // Remove 'x' from register name
+    
+        // If immediate fits in a 12-bit signed range (-2048 to 2047), use addi directly
+        if (immediate >= -2048 && immediate <= 2047) {
+            tokens = {"addi", "x" + rd, "x0", to_string(immediate)};
+            I_FormatDivision();
+        } else {
+            // Compute upper and lower parts
+            int upper = (immediate + 0x800) >> 12;  // Round to nearest 4K boundary
+            int lower = immediate & 0xFFF;          // Extract lower 12 bits
+            
+            // Handle negative lower part (sign extension issue)
+            if (lower & 0x800) {
+                lower -= 0x1000;
+                upper += 1;
+            }
+    
+            // Generate lui instruction
+            tokens = {"lui", "x" + rd, to_string(upper)};
+            U_FormatDivision();
+    
+            // Generate addi only if lower is nonzero
+            if (lower != 0) {
+                tokens = {"addi", "x" + rd, "x" + rd, to_string(lower)};
+                I_FormatDivision();
+            }
+        }
+    }
+    
+else if (tokens[0] == "la") {
+    if (tokens.size() != 3) {
+        cerr << "Invalid instruction for la pseudo-instruction" << endl;
+        return;
+    }
+
+    string rd = tokens[1];
+    string label = tokens[2];
+
+    if (!IsValidRegister(rd)) {
+        cerr << "Invalid register name!" << endl;
+        return;
+    }
+
+    if (label_address.find(label) == label_address.end()) {
+        cerr << "Error: Undefined label " << label << endl;
+        return;
+    }
+
+    int address = label_address[label];
+    int upper = address >> 12;
+    int lower = address & 0xFFF;
+    rd.erase(0, 1);  // Remove 'x' prefix
+
+    // Handle AUIPC
+    tokens = {"auipc", "x" + rd, to_string(upper)};
+    U_FormatDivision();
+
+    // Handle ADDI (only if lower part is nonzero)
+    if (lower != 0) {
+        tokens = {"addi", "x" + rd, "x" + rd, to_string(lower)};
+        I_FormatDivision();
+    }
+}
+
+}
+
 vector<string> ExtractMachineCode() {
+    PseudoInstructionHandler();
     switch (instruction_format_mapping[tokens[0]]) {
         case R:
             R_FormatDivision();
