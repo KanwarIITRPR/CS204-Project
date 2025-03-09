@@ -291,8 +291,46 @@ string generateBinaryCode(vector<string> &tokens) {
 }
 
 
-
 void firstPass(ifstream &fin) {
+  string line;
+  mode = 0; // Start in .text mode
+  while (getline(fin, line)) {
+    vector<string> tokens = tokenize(line);
+    if (tokens.empty()) continue;
+
+    if (tokens[0] == ".data") {
+      mode = 1;
+      continue;
+    }
+    if (tokens[0] == ".text") {
+      mode = 0;
+      continue;
+    }
+
+    if (tokens[0].back() == ':') {
+      labelAddress[tokens[0].substr(0, tokens[0].size() - 1)] = (mode == 0) ? text_address : data_address;
+    } else if (mode == 0) {
+      text_address += 4;
+    } else if (mode == 1) {
+      if (tokens[0] == ".asciiz") {
+        string str = line.substr(line.find('"') + 1, line.rfind('"') - line.find('"') - 1);
+        data_address += str.length() + 1; // +1 for null terminator
+      } else if (tokens[0] == ".word" || tokens[0] == ".dword") {
+        data_address += 4 * (tokens.size() - 1);
+      } else if (tokens[0] == ".half") {
+        data_address += 2 * (tokens.size() - 1);
+      } else if (tokens[0] == ".byte") {
+        data_address += tokens.size() - 1;
+      }
+    }
+  }
+  text_address = CODE_START;
+  data_address = DATA_START;
+  fin.clear();
+  fin.seekg(0);
+}
+
+void firstPassol(ifstream &fin) {
   string line;
   mode = 0; // Start in .text mode
   while (getline(fin, line)) {
@@ -457,32 +495,29 @@ void processDataSegment(ofstream &fout, vector<string> &tokens, int &data_addres
            << setw(2) << setfill('0') << hex << static_cast<int>(c) << endl;
       data_address++;
     }
+    // Add null terminator for .asciiz
     fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x00" << endl;
     data_address++;
   }
 }
 
 
+void processDataSegmentolde(ofstream &fout, vector<string> &tokens, int &data_address, const string &line) {
+  if (tokens.empty()) return;
 
-
-void processDataSegmentolDDDD(ofstream &fout, vector<string> &tokens, int &data_address, const string &line) {
-  fout << ".data" << endl;
-
-  if (tokens.size() < 2) return;
-
-  if (tokens[1] == ".word" || tokens[1] == ".half" || tokens[1] == ".byte" || tokens[1] == ".dword") {
-    int size = (tokens[1] == ".word" || tokens[1] == ".dword") ? 4 : (tokens[1] == ".half" ? 2 : 1);
-    for (size_t i = 2; i < tokens.size(); i++) {
+  if (tokens[0] == ".word" || tokens[0] == ".half" || tokens[0] == ".byte" || tokens[0] == ".dword") {
+    int size = (tokens[0] == ".word" || tokens[0] == ".dword") ? 4 : (tokens[0] == ".half" ? 2 : 1);
+    for (size_t i = 1; i < tokens.size(); i++) {
       try {
         uint32_t value = stoul(tokens[i], nullptr, 0);
         fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x"
-             << setw(8) << setfill('0') << hex << value << endl;
+             << setw(2 * size) << setfill('0') << hex << value << endl;
         data_address += size;
       } catch (invalid_argument &) {
         cerr << "Invalid numeric data: " << tokens[i] << endl;
       }
     }
-  } else if (tokens[1] == ".asciiz") {
+  } else if (tokens[0] == ".asciiz") {
     string str = line.substr(line.find('"') + 1, line.rfind('"') - line.find('"') - 1);
     for (char c : str) {
       fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x"
@@ -494,32 +529,6 @@ void processDataSegmentolDDDD(ofstream &fout, vector<string> &tokens, int &data_
   }
 }
 
-
-
-
-
-void processDataSegmentolllld(ofstream &fout, vector<string> &tokens, int &data_address, const string &line) {
-  if (tokens.size() < 2) return;
-
-  if (tokens[1] == ".word" || tokens[1] == ".half" || tokens[1] == ".byte" || tokens[1] == ".dword") {
-    int size = (tokens[1] == ".word" || tokens[1] == ".dword") ? 4 : (tokens[1] == ".half" ? 2 : 1);
-    for (size_t i = 2; i < tokens.size(); i++) {
-      uint32_t value = stoul(tokens[i], nullptr, 0);
-      fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x"
-           << setw(8) << setfill('0') << hex << value << endl;
-      data_address += size;
-    }
-  } else if (tokens[1] == ".asciiz") {
-    string str = line.substr(line.find('"') + 1, line.rfind('"') - line.find('"') - 1);
-    for (char c : str) {
-      fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x"
-           << setw(2) << setfill('0') << hex << static_cast<int>(c) << endl;
-      data_address++;
-    }
-    fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x00" << endl;
-    data_address++;
-  }
-}
 
 
 
