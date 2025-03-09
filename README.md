@@ -69,6 +69,10 @@ risc-v-assembler/
 
 ## How It Works
 
+
+
+![Alt text](ok.svg)
+
 ### Assembly Process
 
 The assembler uses a two-pass approach to resolve labels and generate machine code:
@@ -92,63 +96,7 @@ The assembler uses a two-pass approach to resolve labels and generate machine co
    - Process `.word`, `.half`, `.byte`, `.dword`, and `.asciiz` directives
    - Output memory address and data values
 
-### Instruction Format Handling
-
-The assembler supports all standard RISC-V instruction formats:
-
-#### R-type Instructions
-```
-┌───────┬─────┬─────┬───────┬────┬────────┐
-│ funct7│ rs2 │ rs1 │ funct3│ rd │ opcode │
-└───────┴─────┴─────┴───────┴────┴────────┘
-   7       5     5      3      5      7    bits
-```
-
-#### I-type Instructions
-```
-┌──────────┬─────┬───────┬────┬────────┐
-│ immediate│ rs1 │ funct3│ rd │ opcode │
-└──────────┴─────┴───────┴────┴────────┘
-     12       5      3      5      7    bits
-```
-
-#### S-type Instructions
-```
-┌────────┬─────┬─────┬───────┬────────┬────────┐
-│imm[11:5]│ rs2 │ rs1 │ funct3 │ imm[4:0] │ opcode │
-└────────┴─────┴─────┴───────┴────────┴────────┘
-    7       5     5      3        5        7    bits
-```
-
-#### SB-type Instructions
-```
-┌─────────────┬─────┬─────┬───────┬────────────┬────────┐
-│ imm[12,10:5]│ rs2 │ rs1 │ funct3│ imm[4:1,11]│ opcode │
-└─────────────┴─────┴─────┴───────┴────────────┴────────┘
-       7         5     5      3         5          7    bits
-```
-
-#### U-type Instructions
-```
-┌────────────────┬────┬────────┐
-│    immediate   │ rd │ opcode │
-└────────────────┴────┴────────┘
-        20         5      7    bits
-```
-
-#### UJ-type Instructions
-```
-┌─────────────────────┬────┬────────┐
-│      immediate      │ rd │ opcode │
-└─────────────────────┴────┴────────┘
-          20           5      7    bits
-```
-
 ## Installation
-
-### Prerequisites
-- C++ compiler with C++11 support (GCC 4.8+ or Clang 3.3+)
-- Make (optional, for building)
 
 ### Build from Source
 1. Clone this repository:
@@ -160,11 +108,6 @@ The assembler supports all standard RISC-V instruction formats:
 2. Compile the source code:
    ```bash
    g++ -std=c++11 main.cpp codes.cpp depend.cpp -o riscv-assembler
-   ```
-
-   Or with make (if you have a Makefile):
-   ```bash
-   make
    ```
 
 ## Usage
@@ -214,23 +157,6 @@ End of text segment
 ...
 End of data segment
 ```
-
-## Memory Layout
-
-The assembler uses the following memory layout:
-- Text segment starts at address 0x00000000
-- Data segment starts at address 0x10000000
-
-## Error Handling
-
-The assembler performs various error checks:
-- Invalid instruction formats
-- Invalid register numbers
-- Immediate values out of range
-- Invalid numeric data in data directives
-- Missing or inaccessible input/output files
-
-Error messages are printed to standard error with information about the line number and the specific issue encountered.
 
 ## Contributors
 
