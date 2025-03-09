@@ -117,9 +117,9 @@ vector<string> tokens;
 string machineCode;
 vector<string> machineCodeDivision(7);
 
+int current_address;
 map<string, int> label_address;
 
-void NextInstruction() { getline(fin, instruction); }
 int GetDecimalNumber(const string &s) {
     bool is_hex = (s.substr(0, 2) == "0x");
     if (is_hex) return stoi(s, nullptr, 16);
@@ -216,14 +216,16 @@ bool IsValidDirectiveData(const string &data_directive, int bytes) {
     return true;
 }
 
-vector<string> Tokenize() {
-    stringstream instructionStream(instruction);
+vector<string> Tokenize(bool skip_label = false) {
+    stringstream instructionStream;
     vector<string> currTokens;
     string currToken;
+
+    if (instruction.find("#") != -1) instruction = instruction.substr(0, instruction.find("#"));
+    instructionStream << instruction;
     
     while (instructionStream >> currToken) {
-        if (currToken[0] == '#') break;
-        if (currToken.find(":") != -1) continue;
+        if (!skip_label && currToken.find(":") != -1) continue;
         currTokens.push_back(currToken);
     }
 
@@ -244,10 +246,13 @@ void ExtractLabelAddresses() {
             continue;
         }
 
-        Tokenize();
+        Tokenize(true);
         if (tokens.empty()) continue;
 
+        bool has_label = false;
         if (instruction.find(":") != -1) {
+            has_label = true;
+
             string label_name = instruction.substr(0, instruction.find(":"));
             if (label_name.find(" ") != -1) {
                 cerr << "Invalid Label name!" << endl;
@@ -430,11 +435,15 @@ void SB_FormatDivision() {
         return;
     }
 
+    int offset = label_address[tokens[3]] - current_address;
+
     string opcode = sbOpcode[tokens[0]];
     string funct3 = sbFunct3[tokens[0]];
     string rs1 = tokens[1];
     string rs2 = tokens[2];
-    string immediate = tokens[3];
+    stringstream immediateValue;
+    immediateValue << offset;
+    string immediate = immediateValue.str();
 
     if (!(IsValidRegister(rs1) && IsValidRegister(rs2))) {
         cerr << "Invalid register name!" << endl;
@@ -510,9 +519,13 @@ void UJ_FormatDivision() {
         return;
     }
 
+    int offset = label_address[tokens[3]] - current_address;
+
     string opcode = ujOpcode[tokens[0]];
     string rd = tokens[1];
-    string immediate = tokens[2];
+    stringstream immediateValue;
+    immediateValue << offset;
+    string immediate = immediateValue.str();
 
     if (!IsValidRegister(rd)) {
         cerr << "Invalid register name!" << endl;
@@ -570,8 +583,8 @@ vector<string> ExtractMachineCode() {
     return machineCodeDivision;
 }
 
-int ProcessCode(int current_address) {
-    if (tokens.empty()) return -1;
+void ProcessCode() {
+    if (tokens.empty()) return;
 
     ExtractMachineCode();
 
@@ -579,7 +592,11 @@ int ProcessCode(int current_address) {
     fout << "0x" << setw(8) << setfill('0') << BinaryToHex(machineCode) << "  ";
 
     for (int i = 0; i < tokens.size(); i++) {
-        fout << tokens[i];
+        if (label_address[tokens[i]]) {
+            int offset = label_address[tokens[i]] - current_address;
+            fout << dec << offset;
+        } else fout << tokens[i];
+
         if (i == 0 || i == tokens.size() - 1) fout << " ";
         else fout << ", ";
     }
@@ -590,12 +607,12 @@ int ProcessCode(int current_address) {
         if (i != 6) fout << " - ";
     }
 
-    cout << endl;
-    return current_address + 4;
+    fout << endl;
+    current_address = current_address + 4;
 }
 
-int ProcessData(int current_address) {
-    if (tokens.empty()) return -1;
+void ProcessData() {
+    if (tokens.empty()) return;
     map<string, int> address_size = {
         {".byte", 1},
         {".half", 2},
@@ -622,8 +639,6 @@ int ProcessData(int current_address) {
         }
         tokens[1][string_length] = '\"';
     }
-
-    return current_address;
 }
 
 void InitializeInstructions() {
@@ -681,27 +696,28 @@ int main(int argC, char* argV[]) {
     InitializeInstructions();
     DefineCodes();
 
-    // ExtractLabelAddresses();
-    // cout << stoi("0xA");
+    ExtractLabelAddresses();
 
-    NextInstruction();
-    Tokenize();
-    NextInstruction();
-    Tokenize();
-    ProcessData(DATA_ADDRESS);
-    NextInstruction();
-    Tokenize();
-    ProcessData(DATA_ADDRESS);
-    NextInstruction();
-    Tokenize();
-    ProcessData(DATA_ADDRESS);
-    NextInstruction();
-    Tokenize();
-    ProcessData(DATA_ADDRESS);
+    int text_mode = 1;
+    current_address = TEXT_ADDRESS;
+    while (getline(fin, instruction)) {
+        if (Tokenize().empty()) continue;
 
+        if (tokens[0] == ".data") {
+            text_mode = 0;
+            current_address = DATA_ADDRESS;
+            fout << ".data" << endl;
+            continue;
+        } else if (tokens[0] == ".text") {
+            text_mode = 1;
+            current_address = TEXT_ADDRESS;
+            fout << ".text" << endl;
+            continue;
+        }
 
-
-
+        if (text_mode) ProcessCode();
+        else ProcessData();
+    }
 
     return 0;
 }
