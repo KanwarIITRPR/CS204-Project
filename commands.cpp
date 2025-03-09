@@ -63,6 +63,8 @@ void InitializeInstructions() {
     instruction_format_mapping["bne"] = SB;
     instruction_format_mapping["bge"] = SB;
     instruction_format_mapping["blt"] = SB;
+    instruction_format_mapping["beqz"] = SB;
+    instruction_format_mapping["bnez"] = SB;
 
     instruction_format_mapping["lui"] = U;
     instruction_format_mapping["auipc"] = U;
@@ -333,6 +335,15 @@ void SB_FormatDivision() {
     if (tokens.size() != 4) {
         cerr << "Invalid instruction for a SB-Format operation" << endl;
         return;
+    }
+
+    // Handle pseudo-instructions
+    if (tokens[0] == "beqz") {
+        tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
+        tokens[0] = "beq";
+    } else if (tokens[0] == "bnez") {
+        tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
+        tokens[0] = "bne"; 
     }
 
     int offset = label_address[tokens[3]] - current_address;
