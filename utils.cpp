@@ -22,14 +22,14 @@ map<string, char> hex_dict = {
 
 int GetDecimalNumber(const string &s) {
     bool is_hex = (s.substr(0, 2) == "0x");
-    if (is_hex) return stoi(s, nullptr, 16);
+    if (is_hex) return stoll(s, nullptr, 16);
     for (char digit : s) {
         if (!isdigit(digit)) {
             cerr << "Invalid Number";
             return -1;
         }
     }
-    return stoi(s);
+    return stoll(s);
 }
 
 string DecimalToBinary(int decimalNumber, int length = -1) {

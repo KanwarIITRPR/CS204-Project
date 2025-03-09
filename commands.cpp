@@ -48,6 +48,7 @@ void InitializeInstructions() {
     instruction_format_mapping["addi"] = I;
     instruction_format_mapping["andi"] = I;
     instruction_format_mapping["ori"] = I;
+    instruction_format_mapping["xori"] = I;
     instruction_format_mapping["lb"] = I;
     instruction_format_mapping["lh"] = I;
     instruction_format_mapping["lw"] = I;
@@ -63,8 +64,6 @@ void InitializeInstructions() {
     instruction_format_mapping["bne"] = SB;
     instruction_format_mapping["bge"] = SB;
     instruction_format_mapping["blt"] = SB;
-    instruction_format_mapping["beqz"] = SB;
-    instruction_format_mapping["bnez"] = SB;
 
     instruction_format_mapping["lui"] = U;
     instruction_format_mapping["auipc"] = U;
@@ -115,6 +114,7 @@ void DefineCodes() {
     i_opcode["addi"] = "0010011";
     i_opcode["andi"] = "0010011";
     i_opcode["ori"] = "0010011";
+    i_opcode["xori"] = "0010011";
     i_opcode["lb"] = "0000011";
     i_opcode["ld"] = "0000011";
     i_opcode["lh"] = "0000011";
@@ -124,6 +124,7 @@ void DefineCodes() {
     i_funct3["addi"] = "000";
     i_funct3["andi"] = "111";
     i_funct3["ori"] = "110";
+    i_funct3["xori"] = "100";
     i_funct3["lb"] = "000";
     i_funct3["ld"] = "011";
     i_funct3["lh"] = "001";
@@ -260,7 +261,7 @@ void I_FormatDivision() {
         return;
     }
 
-    if (!(stoi(immediate) >= -2048 && stoi(immediate) <= 2047)) {
+    if (!(stoll(immediate) >= -2048 && stoll(immediate) <= 2047)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -270,7 +271,7 @@ void I_FormatDivision() {
 
     rd = DecimalToBinary(stoi(rd), 5);
     rs1 = DecimalToBinary(stoi(rs1), 5);
-    immediate = DecimalToBinary(stoi(immediate), 12);
+    immediate = DecimalToBinary(stoll(immediate), 12);
     
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = funct3;
@@ -305,7 +306,7 @@ void S_FormatDivision() {
         return;
     }
 
-    if (!(stoi(immediate) >= -2048 && stoi(immediate) <= 2047)) {
+    if (!(stoll(immediate) >= -2048 && stoll(immediate) <= 2047)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -315,7 +316,7 @@ void S_FormatDivision() {
 
     rs1 = DecimalToBinary(stoi(rs1), 5);
     rs2 = DecimalToBinary(stoi(rs2), 5);
-    immediate = DecimalToBinary(stoi(immediate), 12);
+    immediate = DecimalToBinary(stoll(immediate), 12);
 
     string lowerImmediate = immediate.substr(7, 5);
     string upperImmediate = immediate.substr(0, 7);
@@ -332,15 +333,6 @@ void S_FormatDivision() {
 }
 
 void SB_FormatDivision() {
-    // Handle pseudo-instructions
-    if (tokens[0] == "beqz") {
-        tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
-        tokens[0] = "beq";
-    } else if (tokens[0] == "bnez") {
-        tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
-        tokens[0] = "bne"; 
-    }
-
     if (tokens.size() != 4) {
         cerr << "Invalid instruction for a SB-Format operation" << endl;
         return;
@@ -361,7 +353,7 @@ void SB_FormatDivision() {
         return;
     }
 
-    if (!(stoi(immediate) >= -4096 && stoi(immediate) <= 4095)) {
+    if (!(stoll(immediate) >= -4096 && stoll(immediate) <= 4095)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -372,7 +364,7 @@ void SB_FormatDivision() {
     rs1 = DecimalToBinary(stoi(rs1), 5);
     rs2 = DecimalToBinary(stoi(rs2), 5);
     immediate = immediate.substr(0, 12);
-    immediate = DecimalToBinary(stoi(immediate), 12);
+    immediate = DecimalToBinary(stoll(immediate), 12);
     
     string lowerImmediate = immediate.substr(8, 4) + immediate[1];
     string upperImmediate = immediate[0] + immediate.substr(2, 6);
@@ -403,7 +395,7 @@ void U_FormatDivision() {
         return;
     }
 
-    if (!(stoi(immediate) >= -pow(2, 20) && stoi(immediate) <= pow(2, 20) - 1)) {
+    if (!(stoll(immediate) >= -pow(2, 20) && stoll(immediate) <= pow(2, 20) - 1)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -411,7 +403,7 @@ void U_FormatDivision() {
     rd.erase(0, 1);
 
     rd = DecimalToBinary(stoi(rd), 5);
-    immediate = DecimalToBinary(stoi(immediate), 20);
+    immediate = DecimalToBinary(stoll(immediate), 20);
     
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = "NULL";
@@ -443,7 +435,7 @@ void UJ_FormatDivision() {
         return;
     }
 
-    if (!(stoi(immediate) >= -pow(2, 21) && stoi(immediate) <= pow(2, 21) - 1)) {
+    if (!(stoll(immediate) >= -pow(2, 21) && stoll(immediate) <= pow(2, 21) - 1)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -452,7 +444,7 @@ void UJ_FormatDivision() {
 
     rd = DecimalToBinary(stoi(rd), 5);
     immediate = immediate.substr(0, 20);
-    immediate = DecimalToBinary(stoi(immediate), 20);
+    immediate = DecimalToBinary(stoll(immediate), 20);
 
     string adjustedImmediate = immediate[0] + immediate.substr(10, 10) + immediate[9] + immediate.substr(1, 8);
     
@@ -467,7 +459,33 @@ void UJ_FormatDivision() {
     machineCode = adjustedImmediate + rd + opcode;
 }
 
+void PseudoInstructionHandler() {
+    if (tokens[0] == "j") {
+        tokens.insert(tokens.begin() + 1, "x0");
+        tokens[0] = "jal";
+    } else if (tokens[0] == "beqz") {
+        tokens.insert(tokens.begin() + 2, "x0");
+        tokens[0] = "beq";
+    } else if (tokens[0] == "bnez") {
+        tokens.insert(tokens.begin() + 2, "x0");
+        tokens[0] = "bne";  
+    } else if (tokens[0] == "neg") {
+        tokens.insert(tokens.begin() + 2, "x0");
+        tokens[0] = "sub";
+    } else if (tokens[0] == "not") {
+        tokens.insert(tokens.begin() + 3, "-1");
+        tokens[0] = "xori";
+    } else if (tokens[0] == "bgt") {
+        std::swap(tokens[1], tokens[2]);
+        tokens[0] = "blt";
+    } else if (tokens[0] == "ble") {
+        std::swap(tokens[1], tokens[2]);
+        tokens[0] = "bge";
+    }
+}
+
 vector<string> ExtractMachineCode() {
+    PseudoInstructionHandler();
     switch (instruction_format_mapping[tokens[0]]) {
         case R:
             R_FormatDivision();
