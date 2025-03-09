@@ -23,13 +23,13 @@ It supports a wide range of standard RISC-V instruction formats and data directi
 ## Features
 
 - **Complete RISC-V Instruction Support**:
-  - **R-type**: add, sub, and, or, xor, sll, srl, sra, slt, mul, div, rem
-  - **I-type**: addi, andi, ori, jalr
+  - **R-type**: add, sub, and, or, xor, sll, srl, sra, slt, mul, div, rem, neg
+  - **I-type**: addi, andi, ori, xori, jalr, not
   - **Load instructions**: lb, ld, lh, lw
   - **S-type/Store instructions**: sb, sh, sw, sd
-  - **SB-type/Branch instructions**: beq, bne, bge, blt
+  - **SB-type/Branch instructions**: beq, bne, bge, blt, bgt, ble, beqz, bnez
   - **U-type**: auipc, lui
-  - **UJ-type**: jal
+  - **UJ-type**: jal, j
 
 - **Data Directive Support**:
   - `.word`: 32-bit data
