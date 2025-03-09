@@ -332,11 +332,6 @@ void S_FormatDivision() {
 }
 
 void SB_FormatDivision() {
-    if (tokens.size() != 4) {
-        cerr << "Invalid instruction for a SB-Format operation" << endl;
-        return;
-    }
-
     // Handle pseudo-instructions
     if (tokens[0] == "beqz") {
         tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
@@ -345,6 +340,11 @@ void SB_FormatDivision() {
         tokens.insert(tokens.begin() + 2, "x0"); // Insert "x0" as rs2
         tokens[0] = "bne"; 
     }
+
+    if (tokens.size() != 4) {
+        cerr << "Invalid instruction for a SB-Format operation" << endl;
+        return;
+    }    
 
     int offset = label_address[tokens[3]] - current_address;
 
