@@ -12,11 +12,9 @@ It supports a wide range of standard RISC-V instruction formats and data directi
 - [Project Structure](#project-structure)
 - [How It Works](#how-it-works)
   - [Assembly Process](#assembly-process)
-  - [Instruction Format Handling](#instruction-format-handling)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Output Format](#output-format)
-- [Memory Layout](#memory-layout)
 - [Error Handling](#error-handling)
 - [Contributors](#contributors)
 
@@ -164,6 +162,19 @@ End of text segment
 ...
 End of data segment
 ```
+
+
+## Error Handling
+
+The assembler performs various error checks:
+- Invalid instruction formats
+- Invalid register numbers
+- Immediate values out of range
+- Invalid numeric data in data directives
+- Missing or inaccessible input/output files
+
+Error messages are printed to standard error with information about the line number and the specific issue encountered.
+
 
 ## Contributors
 
