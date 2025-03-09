@@ -14,7 +14,7 @@ bne x3 x4 label2
 bnez x3 label2
 blt x5 x6 label3
 jal x1 label3
-li x1 0xabcdef
+li x1 0xabcdefab
 la x3 label5
 j label5
 # Labels for branch instructions

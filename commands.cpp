@@ -2,6 +2,7 @@
 #include <bits/stdc++.h>
 #include <algorithm>
 #include "utils.cpp"
+#include "main.h"
 using namespace std;
 
 #define TEXT_ADDRESS 0x00000000
@@ -469,29 +470,7 @@ void PseudoInstructionHandler() {
     } else if (tokens[0] == "bnez") {
         tokens.insert(tokens.begin() + 2, "x0");
         tokens[0] = "bne";  
-    } else if (tokens[0] == "neg") {
-        tokens.insert(tokens.begin() + 2, "x0");
-        tokens[0] = "sub";
-    } else if (tokens[0] == "not") {
-        tokens.insert(tokens.begin() + 3, "-1");
-        tokens[0] = "xori";
-    } else if (tokens[0] == "bgt") {
-        std::swap(tokens[1], tokens[2]);
-        tokens[0] = "blt";
-    } else if (tokens[0] == "ble") {
-        std::swap(tokens[1], tokens[2]);
-        tokens[0] = "bge";
-    }
-}
-
-void PseudoInstructionHandler() {
-    if (tokens[0] == "j") {
-        // Convert 'j label' to 'jal x0, label'
-        tokens.insert(tokens.begin() + 1, "x0"); // Add x0 as the rd
-        tokens[0] = "jal"; // Change instruction to jal
-    }
-
-    if (tokens[0] == "li") {
+    } else if (tokens[0] == "li") {
         if (tokens.size() != 3) {
             cerr << "Invalid instruction for li pseudo-instruction" << endl;
             return;
@@ -500,11 +479,11 @@ void PseudoInstructionHandler() {
         string rd = tokens[1];
     
         // Check if the immediate is in hexadecimal format
-        int immediate;
+        int64_t immediate;
         if (tokens[2].find("0x") == 0 || tokens[2].find("0X") == 0) {
-            immediate = stoi(tokens[2], nullptr, 16); // Convert hex to integer
+            immediate = stoll(tokens[2], nullptr, 16); // Convert hex to integer
         } else {
-            immediate = stoi(tokens[2]); // Convert decimal to integer
+            immediate = stoll(tokens[2]); // Convert decimal to integer
         }
     
         if (!IsValidRegister(rd)) {
@@ -518,6 +497,7 @@ void PseudoInstructionHandler() {
         if (immediate >= -2048 && immediate <= 2047) {
             tokens = {"addi", "x" + rd, "x0", to_string(immediate)};
             I_FormatDivision();
+            ProcessCode();
         } else {
             // Compute upper and lower parts
             int upper = (immediate + 0x800) >> 12;  // Round to nearest 4K boundary
@@ -532,50 +512,61 @@ void PseudoInstructionHandler() {
             // Generate lui instruction
             tokens = {"lui", "x" + rd, to_string(upper)};
             U_FormatDivision();
+            ProcessCode();
     
             // Generate addi only if lower is nonzero
             if (lower != 0) {
                 tokens = {"addi", "x" + rd, "x" + rd, to_string(lower)};
-                I_FormatDivision();
             }
         }
     }
+    else if (tokens[0] == "la") {
+        if (tokens.size() != 3) {
+            cerr << "Invalid instruction for la pseudo-instruction" << endl;
+            return;
+        }
     
-else if (tokens[0] == "la") {
-    if (tokens.size() != 3) {
-        cerr << "Invalid instruction for la pseudo-instruction" << endl;
-        return;
+        string rd = tokens[1];
+        string label = tokens[2];
+    
+        if (!IsValidRegister(rd)) {
+            cerr << "Invalid register name!" << endl;
+            return;
+        }
+    
+        if (label_address.find(label) == label_address.end()) {
+            cerr << "Error: Undefined label " << label << endl;
+            return;
+        }
+    
+        int address = label_address[label];
+        int upper = address >> 12;
+        int lower = address & 0xFFF;
+        rd.erase(0, 1);  // Remove 'x' prefix
+    
+        // Handle AUIPC
+        tokens = {"auipc", "x" + rd, to_string(upper)};
+        U_FormatDivision();
+    
+        // Handle ADDI (only if lower part is nonzero)
+        if (lower != 0) {
+            tokens = {"addi", "x" + rd, "x" + rd, to_string(lower)};
+            I_FormatDivision();
+        }
     }
-
-    string rd = tokens[1];
-    string label = tokens[2];
-
-    if (!IsValidRegister(rd)) {
-        cerr << "Invalid register name!" << endl;
-        return;
+    else if (tokens[0] == "neg") {
+        tokens.insert(tokens.begin() + 2, "x0");
+        tokens[0] = "sub";
+    } else if (tokens[0] == "not") {
+        tokens.insert(tokens.begin() + 3, "-1");
+        tokens[0] = "xori";
+    } else if (tokens[0] == "bgt") {
+        std::swap(tokens[1], tokens[2]);
+        tokens[0] = "blt";
+    } else if (tokens[0] == "ble") {
+        std::swap(tokens[1], tokens[2]);
+        tokens[0] = "bge";
     }
-
-    if (label_address.find(label) == label_address.end()) {
-        cerr << "Error: Undefined label " << label << endl;
-        return;
-    }
-
-    int address = label_address[label];
-    int upper = address >> 12;
-    int lower = address & 0xFFF;
-    rd.erase(0, 1);  // Remove 'x' prefix
-
-    // Handle AUIPC
-    tokens = {"auipc", "x" + rd, to_string(upper)};
-    U_FormatDivision();
-
-    // Handle ADDI (only if lower part is nonzero)
-    if (lower != 0) {
-        tokens = {"addi", "x" + rd, "x" + rd, to_string(lower)};
-        I_FormatDivision();
-    }
-}
-
 }
 
 vector<string> ExtractMachineCode() {
