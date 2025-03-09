@@ -1,379 +1,200 @@
 #include <bits/stdc++.h>
 #include <iostream>
+#include <string>
 #include <vector>
-#include <fstream>
 #include <map>
-#include "codes.cpp"
-#include "depend.cpp"
-
+#include <fstream>
+#include "commands.cpp"
 using namespace std;
 
-#define CODE_START 0x00000000
-#define DATA_START 0x10000000
+ifstream fin;
+ofstream fout;
 
-map<string, int> labelAddress;
-int text_address = CODE_START;
-int data_address = DATA_START;
-int mode = 0; // 0 -> .text, 1 -> .data
+string instruction;
+vector<string> tokens;
+string machineCode;
+vector<string> machineCodeDivision(7);
 
-bool isNumber(const string &s) {
-    return !s.empty() && (isdigit(s[0]) || s[0] == '-' || s[0] == '+');
+int current_address;
+map<string, int> label_address;
+
+vector<string> Tokenize(bool skip_label = false) {
+    stringstream instructionStream;
+    vector<string> currTokens;
+    string currToken;
+
+    if (instruction.find("#") != -1) instruction = instruction.substr(0, instruction.find("#"));
+    instructionStream << instruction;
+    
+    while (instructionStream >> currToken) {
+        if (!skip_label && currToken.find(":") != -1) continue;
+        currTokens.push_back(currToken);
+    }
+
+    return tokens = currTokens;
 }
 
-vector<string> tokenize(string instruct) {
-    vector<string> tokens;
-    stringstream ss(instruct);
-    string token;
-    while (ss >> token) {
-        if (token[0] == '#') break; // Ignore comments
-        if (token.back() == ':') {
-            labelAddress[token.substr(0, token.size() - 1)] = text_address;
+void ExtractLabelAddresses() {
+    int current_address = TEXT_ADDRESS;
+    int text_mode = 1;
+    while (getline(fin, instruction)) {
+        if (instruction == ".data") {
+            current_address = DATA_ADDRESS;
+            text_mode = 0;
+            continue;
+        } else if (instruction == ".text") {
+            current_address = TEXT_ADDRESS;
+            text_mode = 1;
             continue;
         }
-        tokens.push_back(token);
-    }
-    return tokens;
-}
-string generateBinaryCode(vector<string> &tokens) {
-    string binary_code;
 
-    if (r_opcode.find(tokens[0]) != r_opcode.end()) {  // R-type
-        if (tokens.size() < 4) {
-            cerr << "Error: Invalid R-type instruction format -> " << tokens[0] << endl;
-            return "";
-        }
-
-        tokens[1].erase(0, 1);
-        tokens[2].erase(0, 1);
-        tokens[3].erase(0, 1);
-
-        if (!isNumber(tokens[1]) || !isNumber(tokens[2]) || !isNumber(tokens[3])) {
-            cerr << "Error: Invalid register number in R-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-
-        string rd = dec_to_bin(stoi(tokens[1]), 5);
-        string rs1 = dec_to_bin(stoi(tokens[2]), 5);
-        string rs2 = dec_to_bin(stoi(tokens[3]), 5);
-        string func7 = r_func7[tokens[0]];
-        string func3 = r_func3[tokens[0]];
-        string opcode = r_opcode[tokens[0]];
-
-        binary_code = func7 + rs2 + rs1 + func3 + rd + opcode;
-    }
-    // Handle Load Instructions (I-type)
-else if (load_opcode.find(tokens[0]) != load_opcode.end()) {  
-    if (tokens.size() < 3) {
-        cerr << "Error: Invalid load instruction format -> " << tokens[0] << endl;
-        return "";
-    }
-
-    tokens[1].erase(0, 1); // Remove 'x' from register
-
-    // Extract immediate and base register from "imm(rs1)" format
-    size_t openParen = tokens[2].find('(');
-    size_t closeParen = tokens[2].find(')');
-    if (openParen == string::npos || closeParen == string::npos) {
-        cerr << "Error: Invalid format for load instruction -> " << tokens[0] << endl;
-        return "";
-    }
-
-    string imm_str = tokens[2].substr(0, openParen);  // Immediate value
-    string rs1_str = tokens[2].substr(openParen + 2, closeParen - openParen - 2); // Register number (skip 'x')
-
-    if (!isNumber(tokens[1]) || !isNumber(rs1_str) || !isNumber(imm_str)) {
-        cerr << "Error: Invalid register or immediate value in load instruction -> " << tokens[0] << endl;
-        return "";
-    }
-
-    int imm_value = stoi(imm_str);
-
-    // Ensure immediate value is within 12-bit signed range
-    if (imm_value < -2048 || imm_value > 2047) {
-        cerr << "Error: Immediate value out of range for load instruction -> " << tokens[0] << endl;
-        return "";
-    }
-
-    string rd = dec_to_bin(stoi(tokens[1]), 5);
-    string rs1 = dec_to_bin(stoi(rs1_str), 5);
-    string imm = dec_to_bin(imm_value, 12);
-    string func3 = load_func3[tokens[0]];
-    string opcode = load_opcode[tokens[0]];
-
-    binary_code = imm + rs1 + func3 + rd + opcode;
-} 
-
-// Handle Other I-type Instructions
-else if (i_opcode.find(tokens[0]) != i_opcode.end()) {  
-    if (tokens.size() < 4) {
-        cerr << "Error: Invalid I-type instruction format -> " << tokens[0] << endl;
-        return "";
-    }
-
-    tokens[1].erase(0, 1); // Remove 'x' from register
-    tokens[2].erase(0, 1); 
-
-    if (!isNumber(tokens[1]) || !isNumber(tokens[2])) {
-        cerr << "Error: Invalid register number in I-type instruction -> " << tokens[0] << endl;
-        return "";
-    }
-
-    int imm_value;
-    try {
-        imm_value = stoi(tokens[3]);
-    } catch (...) {
-        cerr << "Error: Invalid immediate value in I-type instruction -> " << tokens[0] << endl;
-        return "";
-    }
-
-    // Ensure immediate value is within 12-bit signed range
-    if (imm_value < -2048 || imm_value > 2047) {
-        cerr << "Error: Immediate value out of range for I-type instruction -> " << tokens[0] << endl;
-        return "";
-    }
-
-    string rd = dec_to_bin(stoi(tokens[1]), 5);
-    string rs1 = dec_to_bin(stoi(tokens[2]), 5);
-    string imm = dec_to_bin(imm_value, 12);
-    string func3 = i_func3[tokens[0]];
-    string opcode = i_opcode[tokens[0]];
-
-    binary_code = imm + rs1 + func3 + rd + opcode;
-}
-
-    
-    else if (s_opcode.find(tokens[0]) != s_opcode.end()) {  // S-type (Store Instructions)
-        if (tokens.size() < 3) {
-            cerr << "Error: Invalid S-type instruction format -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        tokens[1].erase(0, 1); // Remove 'x' from rs2
-    
-        // Extract immediate and base register from "imm(rs1)" format
-        size_t openParen = tokens[2].find('(');
-        size_t closeParen = tokens[2].find(')');
-        if (openParen == string::npos || closeParen == string::npos) {
-            cerr << "Error: Invalid format for store instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        string imm_str = tokens[2].substr(0, openParen);  // Immediate value
-        string rs1_str = tokens[2].substr(openParen + 2, closeParen - openParen - 2); // Register number (skip 'x')
-    
-        if (!isNumber(tokens[1]) || !isNumber(rs1_str) || !isNumber(imm_str)) {
-            cerr << "Error: Invalid register or immediate value in store instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        int imm_value = stoi(imm_str);
-    
-        // Ensure immediate value is within 12-bit signed range
-        if (imm_value < -2048 || imm_value > 2047) {
-            cerr << "Error: Immediate value out of range for S-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        string rs2 = dec_to_bin(stoi(tokens[1]), 5);
-        string rs1 = dec_to_bin(stoi(rs1_str), 5);
-        string imm_bin = dec_to_bin(imm_value, 12);
-        string imm_high = imm_bin.substr(0, 7);
-        string imm_low = imm_bin.substr(7, 5);
-        string func3 = s_func3[tokens[0]];
-        string opcode = s_opcode[tokens[0]];
-    
-        binary_code = imm_high + rs2 + rs1 + func3 + imm_low + opcode;
-    }
-    
-    else if (sb_func3.find(tokens[0]) != sb_func3.end()) {  // SB-type
-        if (tokens.size() < 4) {
-            cerr << "Error: Invalid SB-type instruction format -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        tokens[1].erase(0, 1);
-        tokens[2].erase(0, 1);
-    
-        if (!isNumber(tokens[1]) || !isNumber(tokens[2])) {
-            cerr << "Error: Invalid register in SB-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        string rs1 = dec_to_bin(stoi(tokens[1]), 5);
-        string rs2 = dec_to_bin(stoi(tokens[2]), 5);
-        int offset = labelAddress[tokens[3]] - text_address;
-        string imm = dec_to_bin(offset, 13);
-        string imm_high = imm[0] + imm.substr(2, 6);
-        string imm_low = imm.substr(8, 4) + imm[1];
-        string func3 = sb_func3[tokens[0]];
-    
-        binary_code = imm_high + rs2 + rs1 + func3 + imm_low + "1100011";
-    }
-    else if (u_opcode.find(tokens[0]) != u_opcode.end()) {  // U-type
-        if (tokens.size() < 3) {
-            cerr << "Error: Invalid U-type instruction format -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        tokens[1].erase(0, 1);
-    
-        if (!isNumber(tokens[1])) {
-            cerr << "Error: Invalid register in U-type instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        string rd = dec_to_bin(stoi(tokens[1]), 5);
-        string imm = dec_to_bin(stoi(tokens[2]), 20);
-        string opcode = u_opcode[tokens[0]];
-    
-        binary_code = imm + rd + opcode;
-    }
-    else if (tokens[0] == "jal") {  // UJ-type
-        if (tokens.size() < 3) {
-            cerr << "Error: Invalid JAL instruction format -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        tokens[1].erase(0, 1);
-    
-        if (!isNumber(tokens[1])) {
-            cerr << "Error: Invalid register in JAL instruction -> " << tokens[0] << endl;
-            return "";
-        }
-    
-        string rd = dec_to_bin(stoi(tokens[1]), 5);
-        int offset = labelAddress[tokens[2]] - text_address;
-        string imm = dec_to_bin(offset, 21);
-        string opcode = "1101111";
-    
-        binary_code = imm[0] + imm.substr(10, 10) + imm[9] + imm.substr(1, 8) + rd + opcode;
-    }
-    else {
-        cerr << "Error: Unrecognized instruction -> " << tokens[0] << endl;
-    }
-
-    return binary_code;
-}
-
-
-void firstPass(ifstream &fin) {
-    string line;
-    while (getline(fin, line)) {
-        vector<string> tokens = tokenize(line);
+        Tokenize(true);
         if (tokens.empty()) continue;
-        
-        if (tokens[0] == ".data") { mode = 1; continue; }
-        if (tokens[0] == ".text") { mode = 0; continue; }
-        
-        if (tokens[0].back() == ':') {
-            labelAddress[tokens[0]] = (mode == 0) ? text_address : data_address;
-        } else if (mode == 0) {
-            text_address += 4;
-        } else if (mode == 1) {
-            data_address += 4;
+
+        bool has_label = false;
+        if (instruction.find(":") != -1) {
+            has_label = true;
+
+            string label_name = instruction.substr(0, instruction.find(":"));
+            if (label_name.find(" ") != -1) {
+                cerr << "Invalid Label name!" << endl;
+                continue;
+            }
+            label_address[label_name] = current_address;
+            tokens.erase(tokens.begin());
+        }
+
+        if (text_mode == 1) {
+            if (tokens.empty()) continue;
+            current_address += 4;
+        } else {
+            string data_directive = tokens[0];
+            tokens.erase(tokens.begin());
+            if (data_directive == ".byte") {
+                if (!IsValidDirectiveData(data_directive, 1)) return;
+                current_address += 1 * (tokens.size() - 1);
+            } else if (data_directive == ".half") {
+                if (!IsValidDirectiveData(data_directive, 2)) return;
+                current_address += 2 * (tokens.size() - 1);
+            } else if (data_directive == ".word") {
+                if (!IsValidDirectiveData(data_directive, 4)) return;
+                current_address += 4 * (tokens.size() - 1);
+            } else if (data_directive == ".double") {
+                if (!IsValidDirectiveData(data_directive, 8)) return;
+                current_address += 8 * (tokens.size() - 1);
+            } else if (data_directive == ".asciiz") {
+                if (!(tokens[0].find("\"") != -1 && tokens[0].rfind("\"") != -1)) {
+                    cerr << "Invalid string of characters!" << endl;
+                    return;
+                }
+                current_address += 1 * (tokens[0].rfind("\"") - tokens[0].find("\"") - 1) + 1;
+            } else {
+                cerr << "Invalid direcitve: " << data_directive << endl;
+                return;
+            }
         }
     }
-    text_address = CODE_START;
-    data_address = DATA_START;
+
     fin.clear();
     fin.seekg(0);
 }
 
-void processInstruction(ofstream &fout, vector<string> &tokens) {
+void ProcessCode() {
     if (tokens.empty()) return;
 
-    string binary_code = generateBinaryCode(tokens);
-    if (binary_code.empty()) return;
+    ExtractMachineCode();
 
-    string cleaned_binary = binary_code;
-    cleaned_binary.erase(remove(cleaned_binary.begin(), cleaned_binary.end(), '-'), cleaned_binary.end());
+    fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
+    fout << "0x" << setw(8) << setfill('0') << BinaryToHex(machineCode) << "  ";
 
-    string hex_code = bin_to_hex(cleaned_binary);
+    for (int i = 0; i < tokens.size(); i++) {
+        if (label_address[tokens[i]]) {
+            int offset = label_address[tokens[i]] - current_address;
+            fout << dec << offset;
+        } else fout << tokens[i];
 
-    fout << "0x" << setw(8) << setfill('0') << hex << text_address
-         << " 0x" << setw(8) << setfill('0') << hex << hex_code
-         << " , " << tokens[0];
+        if (i == 0 || i == tokens.size() - 1) fout << " ";
+        else fout << ", ";
+    }
 
-    for (size_t i = 1; i < tokens.size(); i++) fout << " " << tokens[i];
-    fout << " # " << binary_code << endl;
-    text_address += 4;
+    fout << " # ";
+    for (int i = 0; i < 7; i++) {
+        fout << machineCodeDivision[i];
+        if (i != 6) fout << " - ";
+    }
+
+    fout << endl;
+    current_address = current_address + 4;
 }
 
-void processDataSegment(ofstream &fout, vector<string> &tokens, int &data_address, const string &line) {
-    unordered_map<string, int> sizeMap = {
-        {".word", 4}, {".half", 2}, {".byte", 1}, {".dword", 8}
+void ProcessData() {
+    if (tokens.empty()) return;
+    map<string, int> address_size = {
+        {".byte", 1},
+        {".half", 2},
+        {".word", 4},
+        {".double", 8}
     };
-
-    if (sizeMap.find(tokens[1]) != sizeMap.end()) {
-        int increment = sizeMap[tokens[1]];
-        size_t numValues = tokens.size() - 2;
-        if (numValues == 0) numValues = 1;
-
-        for (size_t i = 2; i < tokens.size(); i++) {
-            try {
-                int value = stoi(tokens[i]);
-                fout << "0x" << setw(8) << setfill('0') << hex << data_address
-                     << " 0x" << setw(8) << setfill('0') << dec << value << endl;
-            } catch (invalid_argument &) {
-                cerr << "Invalid numeric data: " << tokens[i] << endl;
-                fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x00000000" << endl;
-            }
-            data_address += increment;
+    
+    if (address_size[tokens[0]]) {
+        for (int i = 1; i < tokens.size(); i++) {
+            stringstream token_value;
+            token_value << hex << GetDecimalNumber(tokens[i]);
+            fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
+            fout << "0x" << setw(2 * address_size[tokens[0]]) << setfill('0') << token_value.str() << endl;
+            
+            current_address += address_size[tokens[0]];
         }
-
-        if (tokens.size() == 2) {
-            fout << "0x" << setw(8) << setfill('0') << hex << data_address << " 0x00000000" << endl;
-            data_address += increment;
+    } else if (tokens[0] == ".asciiz") {
+        int string_length = tokens[1].length() - 1;
+        tokens[1][string_length] = '\0';
+        for (int i = 1; i <= string_length; i++) {
+            fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
+            fout << "0x" << setw(2) << setfill('0') << hex << (int) tokens[1][i] << endl;
+            current_address += 1;
         }
-    } 
-    else if (tokens[1] == ".asciiz") {
-        string str = line.substr(line.find('"') + 1, line.rfind('"') - line.find('"') - 1);
-        for (size_t i = 0; i < str.length(); i++) {
-            fout << "0x" << setw(8) << setfill('0') << hex << data_address 
-                 << " 0x" << setw(2) << setfill('0') << hex << int(str[i]) 
-                 << " " << dec << int(str[i]) << endl;
-            data_address += 1;
-        }
-        fout << "0x" << setw(8) << setfill('0') << hex << data_address 
-             << " 0x00 0" << endl;
-        data_address += 1;
+        tokens[1][string_length] = '\"';
     }
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        cerr << "Usage: " << argv[0] << " <input.asm> <output.mc>" << endl;
+int main(int argC, char* argV[]) {
+    if (argC < 3) {
+        cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
         return 1;
     }
 
-    defineAllCodes();
-
-    ifstream fin(argv[1]);
-    ofstream fout(argv[2]);
+    fin.open(argV[1]);
+    fout.open(argV[2]);
     if (!fin.is_open() || !fout.is_open()) {
-        cerr << "Error: Unable to open files." << endl;
+        cerr << "Error: Unable to open files" << endl;
         return 1;
     }
 
-    firstPass(fin);
-    string line;
-    while (getline(fin, line)) {
-        vector<string> tokens = tokenize(line);
-        if (tokens.empty()) continue;
+    InitializeInstructions();
+    DefineCodes();
 
-        if (tokens[0] == ".data") { mode = 1; continue; }
-        if (tokens[0] == ".text") { mode = 0; continue; }
+    ExtractLabelAddresses();
 
-        if (mode == 0) {
-            processInstruction(fout, tokens);
-        } else if (mode == 1) {
-            processDataSegment(fout, tokens, data_address, line);
+    int text_mode = 1;
+    current_address = TEXT_ADDRESS;
+    while (getline(fin, instruction)) {
+        if (Tokenize().empty()) continue;
+
+        if (tokens[0] == ".data") {
+            text_mode = 0;
+            current_address = DATA_ADDRESS;
+            fout << ".data" << endl;
+            continue;
+        } else if (tokens[0] == ".text") {
+            text_mode = 1;
+            current_address = TEXT_ADDRESS;
+            fout << ".text" << endl;
+            continue;
         }
-    }
 
-    fout << "0x" << setw(8) << setfill('0') << hex << text_address << " END_OF_TEXT" << endl;
-    fin.close();
-    fout.close();
+        if (text_mode) ProcessCode();
+        else ProcessData();
+    }
 
     return 0;
 }
