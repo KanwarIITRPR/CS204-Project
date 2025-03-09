@@ -8,8 +8,10 @@ str: .asciiz "a"
 lb x1 10(x2)
 addi x2 x0 2
 # SB-type (Branch) Instructions
+beqz x1 label1
 beq x1 x2 label1
 bne x3 x4 label2
+bnez x3 label2
 blt x5 x6 label3
 jal x1 label3
 

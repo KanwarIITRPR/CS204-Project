@@ -176,25 +176,31 @@ int main(int argC, char* argV[]) {
     ExtractLabelAddresses();
 
     int text_mode = 1;
+    bool actually_started = false;
     current_address = TEXT_ADDRESS;
     while (getline(fin, instruction)) {
         if (Tokenize().empty()) continue;
 
         if (tokens[0] == ".data") {
+            if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
             text_mode = 0;
             current_address = DATA_ADDRESS;
             fout << ".data" << endl;
             continue;
         } else if (tokens[0] == ".text") {
+            if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
             text_mode = 1;
             current_address = TEXT_ADDRESS;
             fout << ".text" << endl;
             continue;
         }
-
+        
         if (text_mode) ProcessCode();
         else ProcessData();
+        actually_started = true;
     }
+    if (text_mode) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
+    else fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
 
     return 0;
 }
