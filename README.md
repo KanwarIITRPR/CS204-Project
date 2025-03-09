@@ -70,7 +70,7 @@ risc-v-assembler/
 ## How It Works
 
 
-<img src="ok.svg" alt="Alt text" width="50%" height="50%">
+<img src="ok.svg" alt="Alt text" width="75%" height="75%">
 
 
 ### Assembly Process
