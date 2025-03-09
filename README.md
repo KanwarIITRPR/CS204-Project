@@ -4,7 +4,7 @@
 
 This RISC-V assembler is a comprehensive tool that converts RISC-V assembly code into machine code. 
 
-It supports the full range of standard RISC-V instruction formats and data directives, producing binary representations of each instruction along with their corresponding hexadecimal machine code and memory addresses.
+It supports a wide range of standard RISC-V instruction formats and data directives, producing binary representations of each instruction along with their corresponding hexadecimal machine code and memory addresses.
 
 ## Table of Contents
 
@@ -52,20 +52,26 @@ It supports the full range of standard RISC-V instruction formats and data direc
 ## Project Structure
 
 ```
+README.md          # This file
 risc-v-assembler/
 ├── main.cpp       # Main driver program
-├── codes.cpp      # Instruction encodings definitions
-├── depend.cpp     # Utility functions
-└── README.md      # This file
+├── commands.cpp   # Instruction encodings and format checking
+└── utils.cpp      # Utility functions
+example/
+├── a.exe          # Compiled program
+├── input.asm      # RISC-V assembly program to be assembled
+└── output.mc      # Assembled machine code
+attachments/
+└── ok.svg         # Diagram explaining the working of the assembler
 ```
 
 ### File Descriptions
 
 1. **main.cpp**: The main driver program that orchestrates the assembly process, including file I/O, two-pass assembly, and output generation.
 
-2. **codes.cpp**: Defines opcode, function code, and other binary encodings for RISC-V instructions according to the RISC-V specification.
+2. **commands.cpp**: Defines opcode, function code, and other binary encodings for RISC-V instructions according to the RISC-V specification.
 
-3. **depend.cpp**: Contains utility functions for binary/hexadecimal conversions, string manipulation, and other helper functions.
+3. **utils.cpp**: Contains utility functions for binary/hexadecimal conversions, string manipulation, and other helper functions.
 
 ## How It Works
 
@@ -101,13 +107,13 @@ The assembler uses a two-pass approach to resolve labels and generate machine co
 ### Build from Source
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/risc-v-assembler.git
+   git clone "https://github.com/yourusername/CS204-Project.git"
    cd risc-v-assembler
    ```
 
 2. Compile the source code:
    ```bash
-   g++ -std=c++11 main.cpp codes.cpp depend.cpp -o riscv-assembler
+   g++ -std=c++11 main.cpp -o riscv-assembler
    ```
 
 ## Usage
@@ -122,19 +128,20 @@ Where:
 
 ### Example
 ```bash
-./riscv-assembler program.s program.out
+./riscv-assembler program.asm program.out
 ```
 
 ### Input Assembly Format
 
-The assembler expects a standard RISC-V assembly format with the following sections:
+The assembler expects a standard RISC-V assembly format (space separated) with the following sections:
 
 ```assembly
 .text               # Code section
-    add x1, x2, x3  # Instructions
+    add x1 x2 x3         # Instructions
+    lb x4 0(x5)
 
 .data               # Data section
-    var1: .word 42      # Data declarations
+    var1: .word 42       # Data declarations
 ```
 
 ## Output Format
@@ -160,6 +167,6 @@ End of data segment
 
 ## Contributors
 
-- 2023csb1126	Kanwarveer Singh Chadha
 - 2023csb1102	Aryan Singh
+- 2023csb1126	Kanwarveer Singh Chadha
 - 2023csb1147	Pratham Garg
