@@ -4,8 +4,12 @@
 #include <vector>
 #include <map>
 #include <fstream>
-#include "codes.cpp"
 using namespace std;
+
+#define TEXT_ADDRESS 0x00000000
+#define DATA_ADDRESS 0x10000000
+#define STACK_ADDRESS 0x7FFFFFDC
+#define HEAP_ADDRESS 0x10008000
 
 enum Format {
     R,
@@ -16,6 +20,94 @@ enum Format {
     UJ
 };
 
+map<string, string> rOpcode,iOpcode, sOpcode, sbOpcode, uOpcode, ujOpcode;
+map<string, string> rFunct3, iFunct3, sFunct3, sbFunct3;
+map<string, string> rFunct7;
+
+void DefineCodes() {
+    rOpcode["add"] = "0110011";
+    rOpcode["and"] = "0110011";
+    rOpcode["or"] = "0110011";
+    rOpcode["sll"] = "0110011";
+    rOpcode["slt"] = "0110011";
+    rOpcode["sra"] = "0110011";
+    rOpcode["srl"] = "0110011";
+    rOpcode["sub"] = "0110011";
+    rOpcode["xor"] = "0110011";
+    rOpcode["mul"] = "0110011";
+    rOpcode["div"] = "0110011";
+    rOpcode["rem"] = "0110011";
+
+    rFunct7["add"] = "0000000";
+    rFunct7["and"] = "0000000";
+    rFunct7["or"] = "0000000";
+    rFunct7["sll"] = "0000000";
+    rFunct7["slt"] = "0000000";
+    rFunct7["sra"] = "0100000";
+    rFunct7["srl"] = "0000000";
+    rFunct7["sub"] = "0100000";
+    rFunct7["xor"] = "0000000";
+    rFunct7["mul"] = "0000001";
+    rFunct7["div"] = "0000001";
+    rFunct7["rem"] = "0000001";
+
+    rFunct3["add"] = "000";
+    rFunct3["and"] = "111";
+    rFunct3["or"] = "110";
+    rFunct3["sll"] = "001";
+    rFunct3["slt"] = "010";
+    rFunct3["sra"] = "101";
+    rFunct3["srl"] = "101";
+    rFunct3["sub"] = "000";
+    rFunct3["xor"] = "100";
+    rFunct3["mul"] = "000";
+    rFunct3["div"] = "100";
+    rFunct3["rem"] = "110";
+
+    iOpcode["addi"] = "0010011";
+    iOpcode["andi"] = "0010011";
+    iOpcode["ori"] = "0010011";
+    iOpcode["lb"] = "0000011";
+    iOpcode["ld"] = "0000011";
+    iOpcode["lh"] = "0000011";
+    iOpcode["lw"] = "0000011";
+    iOpcode["jalr"] = "1100111";
+
+    iFunct3["addi"] = "000";
+    iFunct3["andi"] = "111";
+    iFunct3["ori"] = "110";
+    iFunct3["lb"] = "000";
+    iFunct3["ld"] = "011";
+    iFunct3["lh"] = "001";
+    iFunct3["lw"] = "010";
+    iFunct3["jalr"] = "000";
+
+    sOpcode["sb"] = "0100011";
+    sOpcode["sh"] = "0100011";
+    sOpcode["sw"] = "0100011";
+    sOpcode["sd"] = "0100011";
+
+    sFunct3["sb"] = "000";
+    sFunct3["sh"] = "001";
+    sFunct3["sw"] = "010";
+    sFunct3["sd"] = "011";
+
+    sbOpcode["beq"] = "1100011";
+    sbOpcode["bne"] = "1100011";
+    sbOpcode["blt"] = "1100011";
+    sbOpcode["bge"] = "1100011";
+
+    sbFunct3["beq"] = "000";
+    sbFunct3["bne"] = "001";
+    sbFunct3["blt"] = "100";
+    sbFunct3["bge"] = "101";
+
+    uOpcode["auipc"] = "0010111";
+    uOpcode["lui"] = "0110111";
+
+    ujOpcode["jal"] = "1101111";
+}
+
 ifstream fin;
 ofstream fout;
 
@@ -25,9 +117,19 @@ vector<string> tokens;
 string machineCode;
 vector<string> machineCodeDivision(7);
 
+map<string, int> label_address;
+
 void NextInstruction() { getline(fin, instruction); }
-bool isNumber(const string &s) {
-    return !s.empty() && (isdigit(s[0]) || s[0] == '-' || s[0] == '+');
+int GetDecimalNumber(const string &s) {
+    bool is_hex = (s.substr(0, 2) == "0x");
+    if (is_hex) return stoi(s, nullptr, 16);
+    for (char digit : s) {
+        if (!isdigit(digit)) {
+            cerr << "Invalid Number";
+            return (int) nan;
+        }
+    }
+    return stoi(s);
 }
 
 bool IsValidRegister(const string &reg) {
@@ -62,8 +164,58 @@ void StandardizeOffsetRegisterCombination() {
     tokens[2] = tokens[2].substr(openParenthesisIndex + 1, closeParenthesisIndex - openParenthesisIndex - 1);
 }
 
-// Identify Labels
-// Call NextInstruction() before calling tokenize
+string DecimalToBinary(int decimalNumber, int length = -1) {
+    if (!decimalNumber) return "0";
+
+    string binary = "";
+    while (decimalNumber) {
+        binary = ((decimalNumber % 2 == 0) ? "0" : "1") + binary;
+        decimalNumber /= 2;
+    }
+
+    while (binary.size() < length) binary = "0" + binary;
+    return binary;
+}
+
+string BinaryToHex(string binaryNumber) {
+    binaryNumber = string(binaryNumber.length() % 4 ? 4 - binaryNumber.length() % 4 : 0, '0') + binaryNumber;
+    map<string, char> hex_dict = {
+        {"0000", '0'},
+        {"0001", '1'},
+        {"0010", '2'},
+        {"0011", '3'}, 
+        {"0100", '4'},
+        {"0101", '5'},
+        {"0110", '6'},
+        {"0111", '7'},
+        {"1000", '8'},
+        {"1001", '9'},
+        {"1010", 'A'},
+        {"1011", 'B'},
+        {"1100", 'C'},
+        {"1101", 'D'},
+        {"1110", 'E'},
+        {"1111", 'F'}
+    };
+    string hexadecimal;
+    for (size_t i = 0; i < binaryNumber.length(); i += 4) {
+        string group = binaryNumber.substr(i, 4);
+        hexadecimal += hex_dict[group];
+    }
+    return hexadecimal;
+}
+
+bool IsValidDirectiveData(const string &data_directive, int bytes) {
+    for (string data : tokens) {
+        long long data_value = (data.substr(0, 2) == "0x") ? stoll(data, nullptr, 16) : stoll(data);
+        if (!(data_value <= pow(2, 8 * bytes) - 1 && data_value >= 0)) {
+            cerr << "Value of " << data << " exceeds " << data_directive << " size" << endl;
+            return false;
+        }
+    }
+    return true;
+}
+
 vector<string> Tokenize() {
     stringstream instructionStream(instruction);
     vector<string> currTokens;
@@ -71,12 +223,74 @@ vector<string> Tokenize() {
     
     while (instructionStream >> currToken) {
         if (currToken[0] == '#') break;
+        if (currToken.find(":") != -1) continue;
         currTokens.push_back(currToken);
     }
 
     return tokens = currTokens;
 }
 
+void ExtractLabelAddresses() {
+    int current_address = TEXT_ADDRESS;
+    int text_mode = 1;
+    while (getline(fin, instruction)) {
+        if (instruction == ".data") {
+            current_address = DATA_ADDRESS;
+            text_mode = 0;
+            continue;
+        } else if (instruction == ".text") {
+            current_address = TEXT_ADDRESS;
+            text_mode = 1;
+            continue;
+        }
+
+        Tokenize();
+        if (tokens.empty()) continue;
+
+        if (instruction.find(":") != -1) {
+            string label_name = instruction.substr(0, instruction.find(":"));
+            if (label_name.find(" ") != -1) {
+                cerr << "Invalid Label name!" << endl;
+                continue;
+            }
+            label_address[label_name] = current_address;
+            tokens.erase(tokens.begin());
+        }
+
+        if (text_mode == 1) {
+            if (tokens.empty()) continue;
+            current_address += 4;
+        } else {
+            string data_directive = tokens[0];
+            tokens.erase(tokens.begin());
+            if (data_directive == ".byte") {
+                if (!IsValidDirectiveData(data_directive, 1)) return;
+                current_address += 1 * (tokens.size() - 1);
+            } else if (data_directive == ".half") {
+                if (!IsValidDirectiveData(data_directive, 2)) return;
+                current_address += 2 * (tokens.size() - 1);
+            } else if (data_directive == ".word") {
+                if (!IsValidDirectiveData(data_directive, 4)) return;
+                current_address += 4 * (tokens.size() - 1);
+            } else if (data_directive == ".double") {
+                if (!IsValidDirectiveData(data_directive, 8)) return;
+                current_address += 8 * (tokens.size() - 1);
+            } else if (data_directive == ".asciiz") {
+                if (!(tokens[0].find("\"") != -1 && tokens[0].rfind("\"") != -1)) {
+                    cerr << "Invalid string of characters!" << endl;
+                    return;
+                }
+                current_address += 1 * (tokens[0].rfind("\"") - tokens[0].find("\"") - 1) + 1;
+            } else {
+                cerr << "Invalid direcitve: " << data_directive << endl;
+                return;
+            }
+        }
+    }
+
+    fin.clear();
+    fin.seekg(0);
+}
 
 void R_FormatDivision() {
     if (tokens.size() != 4) {
@@ -84,12 +298,12 @@ void R_FormatDivision() {
         return;
     }
 
-    string opcode = r_opcode[tokens[0]];
+    string opcode = rOpcode[tokens[0]];
     string rd = tokens[1];
-    string funct3 = r_func3[tokens[0]];
+    string funct3 = rFunct3[tokens[0]];
     string rs1 = tokens[2];
     string rs2 = tokens[3];
-    string funct7 = r_func7[tokens[0]];
+    string funct7 = rFunct7[tokens[0]];
 
     if (!(IsValidRegister(rd) && IsValidRegister(rs1) && IsValidRegister(rs2))) {
         cerr << "Invalid register name!" << endl;
@@ -99,6 +313,10 @@ void R_FormatDivision() {
     rd.erase(0, 1);
     rs1.erase(0, 1);
     rs2.erase(0, 1);
+
+    rd = DecimalToBinary(stoi(rd), 5);
+    rs1 = DecimalToBinary(stoi(rs1), 5);
+    rs2 = DecimalToBinary(stoi(rs2), 5);
     
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = funct3;
@@ -123,9 +341,9 @@ void I_FormatDivision() {
         return;
     }
 
-    string opcode = i_opcode[tokens[0]];
+    string opcode = iOpcode[tokens[0]];
     string rd = tokens[1];
-    string funct3 = i_func3[tokens[0]];
+    string funct3 = iFunct3[tokens[0]];
     string rs1 = tokens[2];
     string immediate = tokens[3];
 
@@ -141,6 +359,10 @@ void I_FormatDivision() {
     
     rd.erase(0, 1);
     rs1.erase(0, 1);
+
+    rd = DecimalToBinary(stoi(rd), 5);
+    rs1 = DecimalToBinary(stoi(rs1), 5);
+    immediate = DecimalToBinary(stoi(immediate), 12);
     
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = funct3;
@@ -164,8 +386,8 @@ void S_FormatDivision() {
 
     StandardizeOffsetRegisterCombination();
 
-    string opcode = s_opcode[tokens[0]];
-    string funct3 = s_func3[tokens[0]];
+    string opcode = sOpcode[tokens[0]];
+    string funct3 = sFunct3[tokens[0]];
     string rs1 = tokens[1];
     string rs2 = tokens[2];
     string immediate = tokens[3];
@@ -182,7 +404,11 @@ void S_FormatDivision() {
     
     rs1.erase(0, 1);
     rs2.erase(0, 1);
-    
+
+    rs1 = DecimalToBinary(stoi(rs1), 5);
+    rs2 = DecimalToBinary(stoi(rs2), 5);
+    immediate = DecimalToBinary(stoi(immediate), 12);
+
     string lowerImmediate = immediate.substr(7, 5);
     string upperImmediate = immediate.substr(0, 7);
     
@@ -204,8 +430,8 @@ void SB_FormatDivision() {
         return;
     }
 
-    string opcode = sb_opcode[tokens[0]];
-    string funct3 = sb_func3[tokens[0]];
+    string opcode = sbOpcode[tokens[0]];
+    string funct3 = sbFunct3[tokens[0]];
     string rs1 = tokens[1];
     string rs2 = tokens[2];
     string immediate = tokens[3];
@@ -222,6 +448,11 @@ void SB_FormatDivision() {
     
     rs1.erase(0, 1);
     rs2.erase(0, 1);
+
+    rs1 = DecimalToBinary(stoi(rs1), 5);
+    rs2 = DecimalToBinary(stoi(rs2), 5);
+    immediate = immediate.substr(0, 12);
+    immediate = DecimalToBinary(stoi(immediate), 12);
     
     string lowerImmediate = immediate.substr(8, 4) + immediate[1];
     string upperImmediate = immediate[0] + immediate.substr(2, 6);
@@ -243,7 +474,7 @@ void U_FormatDivision() {
         return;
     }
 
-    string opcode = u_opcode[tokens[0]];
+    string opcode = uOpcode[tokens[0]];
     string rd = tokens[1];
     string immediate = tokens[2];
 
@@ -258,6 +489,9 @@ void U_FormatDivision() {
     }
     
     rd.erase(0, 1);
+
+    rd = DecimalToBinary(stoi(rd), 5);
+    immediate = DecimalToBinary(stoi(immediate), 20);
     
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = "NULL";
@@ -276,7 +510,7 @@ void UJ_FormatDivision() {
         return;
     }
 
-    string opcode = uj_opcode[tokens[0]];
+    string opcode = ujOpcode[tokens[0]];
     string rd = tokens[1];
     string immediate = tokens[2];
 
@@ -285,12 +519,16 @@ void UJ_FormatDivision() {
         return;
     }
 
-    if (!(stoi(immediate) >= -pow(2, 20) && stoi(immediate) <= pow(2, 20) - 1)) {
+    if (!(stoi(immediate) >= -pow(2, 21) && stoi(immediate) <= pow(2, 21) - 1)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
     
     rd.erase(0, 1);
+
+    rd = DecimalToBinary(stoi(rd), 5);
+    immediate = immediate.substr(0, 20);
+    immediate = DecimalToBinary(stoi(immediate), 20);
 
     string adjustedImmediate = immediate[0] + immediate.substr(10, 10) + immediate[9] + immediate.substr(1, 8);
     
@@ -305,7 +543,6 @@ void UJ_FormatDivision() {
     machineCode = adjustedImmediate + rd + opcode;
 }
 
-// Convert the registers and immediate values to hexadecimal format
 vector<string> ExtractMachineCode() {
     switch (instructionFormatMapping[tokens[0]]) {
         case R:
@@ -331,6 +568,62 @@ vector<string> ExtractMachineCode() {
             break;
     }
     return machineCodeDivision;
+}
+
+int ProcessCode(int current_address) {
+    if (tokens.empty()) return -1;
+
+    ExtractMachineCode();
+
+    fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
+    fout << "0x" << setw(8) << setfill('0') << BinaryToHex(machineCode) << "  ";
+
+    for (int i = 0; i < tokens.size(); i++) {
+        fout << tokens[i];
+        if (i == 0 || i == tokens.size() - 1) fout << " ";
+        else fout << ", ";
+    }
+
+    fout << " # ";
+    for (int i = 0; i < 7; i++) {
+        fout << machineCodeDivision[i];
+        if (i != 6) fout << " - ";
+    }
+
+    cout << endl;
+    return current_address + 4;
+}
+
+int ProcessData(int current_address) {
+    if (tokens.empty()) return -1;
+    map<string, int> address_size = {
+        {".byte", 1},
+        {".half", 2},
+        {".word", 4},
+        {".double", 8}
+    };
+    
+    if (address_size[tokens[0]]) {
+        for (int i = 1; i < tokens.size(); i++) {
+            stringstream token_value;
+            token_value << hex << GetDecimalNumber(tokens[i]);
+            fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
+            fout << "0x" << setw(2 * address_size[tokens[0]]) << setfill('0') << token_value.str() << endl;
+            
+            current_address += address_size[tokens[0]];
+        }
+    } else if (tokens[0] == ".asciiz") {
+        int string_length = tokens[1].length() - 1;
+        tokens[1][string_length] = '\0';
+        for (int i = 1; i <= string_length; i++) {
+            fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
+            fout << "0x" << setw(2) << setfill('0') << hex << (int) tokens[1][i] << endl;
+            current_address += 1;
+        }
+        tokens[1][string_length] = '\"';
+    }
+
+    return current_address;
 }
 
 void InitializeInstructions() {
@@ -386,22 +679,27 @@ int main(int argC, char* argV[]) {
     }
 
     InitializeInstructions();
+    DefineCodes();
 
-    // Merge codes for Load with I-type
-    defineAllCodes();
-    
+    // ExtractLabelAddresses();
+    // cout << stoi("0xA");
+
     NextInstruction();
     Tokenize();
     NextInstruction();
     Tokenize();
-    // NextInstruction();
-    // Tokenize();
-    // NextInstruction();
-    // Tokenize();
-    StandardizeOffsetRegisterCombination();
-    for (string token : tokens) {
-        cout << token << endl;
-    }
+    ProcessData(DATA_ADDRESS);
+    NextInstruction();
+    Tokenize();
+    ProcessData(DATA_ADDRESS);
+    NextInstruction();
+    Tokenize();
+    ProcessData(DATA_ADDRESS);
+    NextInstruction();
+    Tokenize();
+    ProcessData(DATA_ADDRESS);
+
+
 
 
 
