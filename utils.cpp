@@ -26,7 +26,7 @@ int GetDecimalNumber(const string &s) {
     for (char digit : s) {
         if (!isdigit(digit)) {
             cerr << "Invalid Number";
-            return (int) nan;
+            return -1;
         }
     }
     return stoi(s);
