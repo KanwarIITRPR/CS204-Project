@@ -283,10 +283,9 @@ void I_FormatDivision() {
     
     machineCode = immediate + rs1 + funct3 + rd + opcode;
 }
-
 void S_FormatDivision() {
     if (tokens.size() != 3) {
-        cerr << "Invalid Instruction for I-Format operation" << endl;
+        cerr << "Invalid Instruction for S-Format operation" << endl;
         return;
     } else if (!IsOffsetRegisterCombination()) {
         cerr << "Expected offset-register value" << endl;
@@ -297,9 +296,9 @@ void S_FormatDivision() {
 
     string opcode = s_opcode[tokens[0]];
     string funct3 = s_funct3[tokens[0]];
-    string rs1 = tokens[1];
-    string rs2 = tokens[2];
-    string immediate = tokens[3];
+    string rs2 = tokens[1];  // First operand is rs2 (source register)
+    string rs1 = tokens[2];  // Second operand is rs1 (base address register)
+    string immediate = tokens[3];  // Offset value
 
     if (!(IsValidRegister(rs1) && IsValidRegister(rs2))) {
         cerr << "Invalid register name!" << endl;
@@ -310,7 +309,7 @@ void S_FormatDivision() {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
-    
+
     rs1.erase(0, 1);
     rs2.erase(0, 1);
 
@@ -318,19 +317,22 @@ void S_FormatDivision() {
     rs2 = DecimalToBinary(stoi(rs2), 5);
     immediate = DecimalToBinary(stoll(immediate), 12);
 
-    string lowerImmediate = immediate.substr(7, 5);
-    string upperImmediate = immediate.substr(0, 7);
-    
+    // S-format encoding:
+    // imm[11:5] rs2 rs1 funct3 imm[4:0] opcode
+    string imm_11_5 = immediate.substr(0, 7);
+    string imm_4_0 = immediate.substr(7, 5);
+
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = funct3;
-    machineCodeDivision[2] = "NULL";
+    machineCodeDivision[2] = imm_11_5;
     machineCodeDivision[3] = "NULL";
     machineCodeDivision[4] = rs1;
     machineCodeDivision[5] = rs2;
     machineCodeDivision[6] = immediate;
-    
-    machineCode = upperImmediate + rs2 + rs1 + funct3 + lowerImmediate + opcode;
+
+    machineCode = imm_11_5 + rs2 + rs1 + funct3 + imm_4_0 + opcode;
 }
+
 void SB_FormatDivision() {
     if (tokens.size() != 4) {
         cerr << "Invalid instruction for a SB-Format operation" << endl;
