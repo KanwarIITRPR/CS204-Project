@@ -18,12 +18,12 @@ vector<string> machineCodeDivision(7);
 int current_address;
 map<string, int> label_address;
 
-vector<string> Tokenize(bool skip_label = false) {
+vector<string> Tokenize(bool remove_comments = true, bool skip_label = false) {
     stringstream instructionStream;
     vector<string> currTokens;
     string currToken;
 
-    if (instruction.find("#") != -1) instruction = instruction.substr(0, instruction.find("#"));
+    if (remove_comments && instruction.find("#") != -1) instruction = instruction.substr(0, instruction.find("#"));
     instructionStream << instruction;
     
     while (instructionStream >> currToken) {
@@ -157,50 +157,50 @@ void ProcessData() {
     }
 }
 
-int main(int argC, char* argV[]) {
-    if (argC < 3) {
-        cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
-        return 1;
-    }
+// int main(int argC, char* argV[]) {
+//     if (argC < 3) {
+//         cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
+//         return 1;
+//     }
 
-    fin.open(argV[1]);
-    fout.open(argV[2]);
-    if (!fin.is_open() || !fout.is_open()) {
-        cerr << "Error: Unable to open files" << endl;
-        return 1;
-    }
+//     fin.open(argV[1]);
+//     fout.open(argV[2]);
+//     if (!fin.is_open() || !fout.is_open()) {
+//         cerr << "Error: Unable to open files" << endl;
+//         return 1;
+//     }
 
-    InitializeInstructions();
-    DefineCodes();
+//     InitializeInstructions();
+//     DefineCodes();
 
-    ExtractLabelAddresses();
+//     ExtractLabelAddresses();
 
-    int text_mode = 1;
-    bool actually_started = false;
-    current_address = TEXT_ADDRESS;
-    while (getline(fin, instruction)) {
-        if (Tokenize().empty()) continue;
+//     int text_mode = 1;
+//     bool actually_started = false;
+//     current_address = TEXT_ADDRESS;
+//     while (getline(fin, instruction)) {
+//         if (Tokenize().empty()) continue;
 
-        if (tokens[0] == ".data") {
-            if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
-            text_mode = 0;
-            current_address = DATA_ADDRESS;
-            fout << ".data" << endl;
-            continue;
-        } else if (tokens[0] == ".text") {
-            if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
-            text_mode = 1;
-            current_address = TEXT_ADDRESS;
-            fout << ".text" << endl;
-            continue;
-        }
+//         if (tokens[0] == ".data") {
+//             if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
+//             text_mode = 0;
+//             current_address = DATA_ADDRESS;
+//             fout << ".data" << endl;
+//             continue;
+//         } else if (tokens[0] == ".text") {
+//             if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
+//             text_mode = 1;
+//             current_address = TEXT_ADDRESS;
+//             fout << ".text" << endl;
+//             continue;
+//         }
         
-        if (text_mode) ProcessCode();
-        else ProcessData();
-        actually_started = true;
-    }
-    if (text_mode) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
-    else fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
+//         if (text_mode) ProcessCode();
+//         else ProcessData();
+//         actually_started = true;
+//     }
+//     if (text_mode) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
+//     else fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
 
-    return 0;
-}
+//     return 0;
+// }
