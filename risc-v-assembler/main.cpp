@@ -102,18 +102,27 @@ void ExtractLabelAddresses() {
 void ProcessCode() {
     if (tokens.empty()) return;
 
+    // Save original tokens for processing
+    vector<string> originalTokens = tokens;
+
     ExtractMachineCode();
 
     fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
     fout << "0x" << setw(8) << setfill('0') << BinaryToHex(machineCode) << "  ";
 
-    for (int i = 0; i < tokens.size(); i++) {
-        if (label_address[tokens[i]]) {
-            int offset = label_address[tokens[i]] - current_address;
-            fout << dec << offset;
-        } else fout << tokens[i];
+    // Display the instruction with offset instead of label for branch instructions
+    for (int i = 0; i < originalTokens.size(); i++) {
+        if (i == 3 && (originalTokens[0] == "beq" || originalTokens[0] == "bne" || 
+                       originalTokens[0] == "blt" || originalTokens[0] == "bge" ||
+                       originalTokens[0] == "jal")) {
+            // Calculate and display offset for branch/jump instructions
+            int offset = label_address[originalTokens[i]] - current_address;
+            fout << offset;
+        } else {
+            fout << originalTokens[i];
+        }
 
-        if (i == 0 || i == tokens.size() - 1) fout << " ";
+        if (i == 0 || i == originalTokens.size() - 1) fout << " ";
         else fout << ", ";
     }
 
@@ -126,6 +135,7 @@ void ProcessCode() {
     fout << endl;
     current_address = current_address + 4;
 }
+
 
 void ProcessData() {
     if (tokens.empty()) return;
@@ -178,6 +188,27 @@ int main(int argC, char* argV[]) {
     int text_mode = 1;
     bool actually_started = false;
     current_address = TEXT_ADDRESS;
+    // while (getline(fin, instruction)) {
+    //     if (Tokenize().empty()) continue;
+
+    //     if (tokens[0] == ".data") {
+    //         if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
+    //         text_mode = 0;
+    //         current_address = DATA_ADDRESS;
+    //         fout << ".data" << endl;
+    //         continue;
+    //     } else if (tokens[0] == ".text") {
+    //         if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
+    //         text_mode = 1;
+    //         current_address = TEXT_ADDRESS;
+    //         fout << ".text" << endl;
+    //         continue;
+    //     }
+        
+    //     if (text_mode) ProcessCode();
+    //     else ProcessData();
+    //     actually_started = true;
+    // }
     while (getline(fin, instruction)) {
         if (Tokenize().empty()) continue;
 
@@ -185,20 +216,19 @@ int main(int argC, char* argV[]) {
             if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
             text_mode = 0;
             current_address = DATA_ADDRESS;
-            fout << ".data" << endl;
-            continue;
+            continue;  // Skip writing ".data" to the output
         } else if (tokens[0] == ".text") {
             if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
             text_mode = 1;
             current_address = TEXT_ADDRESS;
-            fout << ".text" << endl;
-            continue;
+            continue;  // Skip writing ".text" to the output
         }
-        
+
         if (text_mode) ProcessCode();
         else ProcessData();
         actually_started = true;
     }
+
     if (text_mode) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
     else fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
 

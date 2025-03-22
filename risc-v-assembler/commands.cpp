@@ -331,7 +331,6 @@ void S_FormatDivision() {
     
     machineCode = upperImmediate + rs2 + rs1 + funct3 + lowerImmediate + opcode;
 }
-
 void SB_FormatDivision() {
     if (tokens.size() != 4) {
         cerr << "Invalid instruction for a SB-Format operation" << endl;
@@ -339,6 +338,9 @@ void SB_FormatDivision() {
     }    
 
     int offset = label_address[tokens[3]] - current_address;
+
+    // RISC-V branch offsets are in units of 2 bytes (half-words)
+    // No need to divide by 2 here as the encoding will handle it correctly
 
     string opcode = sb_opcode[tokens[0]];
     string funct3 = sb_funct3[tokens[0]];
@@ -357,18 +359,19 @@ void SB_FormatDivision() {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
-    
+
     rs1.erase(0, 1);
     rs2.erase(0, 1);
 
     rs1 = DecimalToBinary(stoi(rs1), 5);
     rs2 = DecimalToBinary(stoi(rs2), 5);
-    immediate = immediate.substr(0, 12);
-    immediate = DecimalToBinary(stoll(immediate), 12);
-    
-    string lowerImmediate = immediate.substr(8, 4) + immediate[1];
+    immediate = DecimalToBinary(stoll(immediate), 13);
+
+    // SB-format encoding:
+    // imm[12|10:5] rs2 rs1 funct3 imm[4:1|11] opcode
     string upperImmediate = immediate[0] + immediate.substr(2, 6);
-    
+    string lowerImmediate = immediate.substr(8, 4) + immediate[1];
+
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = funct3;
     machineCodeDivision[2] = "NULL";
@@ -376,9 +379,10 @@ void SB_FormatDivision() {
     machineCodeDivision[4] = rs1;
     machineCodeDivision[5] = rs2;
     machineCodeDivision[6] = immediate;
-    
-    machineCode = upperImmediate + rs2 + rs1 + funct3 + lowerImmediate  + opcode;
+
+    machineCode = upperImmediate + rs2 + rs1 + funct3 + lowerImmediate + opcode;
 }
+
 
 void U_FormatDivision() {
     if (tokens.size() != 3) {
@@ -415,14 +419,13 @@ void U_FormatDivision() {
     
     machineCode = immediate + rd + opcode;
 }
-
 void UJ_FormatDivision() {
     if (tokens.size() != 3) {
         cerr << "Invalid instruction for a UJ-Format operation" << endl;
         return;
     }
 
-    int offset = label_address[tokens[3]] - current_address;
+    int offset = label_address[tokens[2]] - current_address;
 
     string opcode = uj_opcode[tokens[0]];
     string rd = tokens[1];
@@ -435,19 +438,19 @@ void UJ_FormatDivision() {
         return;
     }
 
-    if (!(stoll(immediate) >= -pow(2, 21) && stoll(immediate) <= pow(2, 21) - 1)) {
+    if (!(stoll(immediate) >= -1048576 && stoll(immediate) <= 1048575)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
-    
+
     rd.erase(0, 1);
-
     rd = DecimalToBinary(stoi(rd), 5);
-    immediate = immediate.substr(0, 20);
-    immediate = DecimalToBinary(stoll(immediate), 20);
+    immediate = DecimalToBinary(stoll(immediate), 21);
 
+    // UJ-format encoding:
+    // imm[20|10:1|11|19:12] rd opcode
     string adjustedImmediate = immediate[0] + immediate.substr(10, 10) + immediate[9] + immediate.substr(1, 8);
-    
+
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = "NULL";
     machineCodeDivision[2] = "NULL";
@@ -455,7 +458,7 @@ void UJ_FormatDivision() {
     machineCodeDivision[4] = "NULL";
     machineCodeDivision[5] = "NULL";
     machineCodeDivision[6] = immediate;
-    
+
     machineCode = adjustedImmediate + rd + opcode;
 }
 
@@ -476,10 +479,16 @@ void PseudoInstructionHandler() {
         tokens.insert(tokens.begin() + 3, "-1");
         tokens[0] = "xori";
     } else if (tokens[0] == "bgt") {
-        std::swap(tokens[1], tokens[2]);
+        // For bgt, we need to swap the registers and use blt
+        string temp = tokens[1];
+        tokens[1] = tokens[2];
+        tokens[2] = temp;
         tokens[0] = "blt";
     } else if (tokens[0] == "ble") {
-        std::swap(tokens[1], tokens[2]);
+        // For ble, we need to swap the registers and use bge
+        string temp = tokens[1];
+        tokens[1] = tokens[2];
+        tokens[2] = temp;
         tokens[0] = "bge";
     }
 }

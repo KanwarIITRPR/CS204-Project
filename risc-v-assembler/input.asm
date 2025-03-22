@@ -1,3 +1,7 @@
+.data
+val: .word 10
+valstr: .asciiz "hi there"
+
 .text
 addi x1 x0 2
 addi x2 x0 2
