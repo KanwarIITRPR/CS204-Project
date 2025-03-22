@@ -109,11 +109,6 @@ The assembler uses a two-pass approach to resolve labels and generate machine co
    cd risc-v-assembler
    ```
 
-2. Compile the source code:
-   ```bash
-   g++ -std=c++11 main.cpp -o riscv-assembler
-   ```
-
 ## Usage
 
 ```bash
