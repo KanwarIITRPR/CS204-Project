@@ -35,8 +35,9 @@ class ControlCircuit {
         uint8_t MuxZ = 0;
         uint8_t MuxY = 0;
         uint8_t MuxMA = 0;
+        uint8_t MuxMD = 0;
         uint8_t DemuxMD = 0;
-        uint8_t MuxInc = 0;
+        uint8_t MuxINC = 0;
         uint8_t MuxPC = 0;
 
         uint32_t clock = 0;
@@ -89,11 +90,24 @@ void ControlCircuit::UpdateExecuteSignals() {
 void ControlCircuit::UpdateMemorySignals() {
     string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
 
-    if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || current_instruction.format == S) MuxMA = 0b1;
+    if (current_instruction.stage == FETCH) MuxMA = 0b1;
+    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || current_instruction.format == S) MuxMA = 0b10;
+    else MuxMA = 0b0;
+
+    if (current_instruction.stage == FETCH || command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxMD = 0b1;
+    else if (current_instruction.format == S) MuxMD = 0b10;
     else MuxMA = 0b0;
     
-    if (command == "lb" || command == "lh" || command == "lw" || command == "ld") DemuxMD = 0b1;
+    if (current_instruction.stage == FETCH) DemuxMD = 0b1;
+    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") DemuxMD = 0b10;
     else DemuxMD = 0b0;
+
+    if (command == "jalr") MuxPC = 0b1; // Select RZ
+    else MuxPC = 0b0; // Select INSTRUCTION_SIZE
+    
+    if (command == "jal") MuxINC = 0b1; // Select immediate
+    else if (command == "beq" || command == "bne" || command == "blt" || command == "bge") MuxINC = MuxINC; // Already calculated
+    else MuxINC = 0b0; // Select 4
 }
 
 class Simulator {
@@ -103,6 +117,8 @@ class Simulator {
         void Decode();
         void Execute();
         void MemoryAccess();
+        uint32_t GetValueFromMemory(uint32_t location, int bytes);
+        void StoreValueInMemory(uint32_t location, uint32_t data, int bytes);
         void RegisterState();
         void RunInstruction();
         void InitialParse(string mc_file);
@@ -291,13 +307,13 @@ void Simulator::Execute() {
         case 0b1100:
             RZ = (RA < RB) ? 1 : 0; break;
         case 0b1101:
-            RZ = RA == RB; break;
+            control.MuxINC = RA == RB; break;
         case 0b1110:
-            RZ = RA != RB; break;
+            control.MuxINC = RA != RB; break;
         case 0b1111:
-            RZ = RA < RB; break;
+            control.MuxINC = RA < RB; break;
         case 0b10000:
-            RZ = RA >= RB; break;
+            control.MuxINC = RA >= RB; break;
         default: break;
     }
 
@@ -305,10 +321,76 @@ void Simulator::Execute() {
     cout << "Decode Completed" << endl;
 }
 
+uint32_t Simulator::GetValueFromMemory(uint32_t location, int bytes = 0) {
+    if (location < DATA_ADDRESS) {
+        return stoul(text_map[location].machine_code, nullptr, 16);
+    } else {
+        uint32_t final_value = 0;
+        for (size_t i = 0; i < bytes; i++) {
+            final_value = data_map[location + i] << (8 * i);
+        }
+        return final_value;
+    }
+}
+
+void Simulator::StoreValueInMemory(uint32_t location, uint32_t data, int bytes = 0) {
+    for (size_t i = 0; i < bytes; i++) {
+        data_map[location + i] = data % 0x100;
+        data >> 8;
+    }
+}
+
 void Simulator::MemoryAccess() {
     if (!IR) return;
 
+    switch (control.MuxMA) {
+        case 0b1:
+            MAR = PC;
+            break;
+        case 0b10:
+            MAR = RZ;
+            break;
+        default: break;
+    }
 
+    string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
+    switch (control.MuxMD) {
+        case 0b1:
+            MDR = GetValueFromMemory(MAR, bytes[command]);
+            break;
+        case 0b10:
+            StoreValueInMemory(MAR, RM, bytes[command]);
+            break;
+        default: break;
+    }
+
+    switch (control.DemuxMD) {
+        case 0b1:
+            IR = MDR;
+            break;
+        case 0b10:
+            break;
+        default: break;
+    }
+
+    switch (control.MuxPC) {
+        case 0b0:
+            PC = PC;
+            break;
+        case 0b1:
+            PC = RZ;
+            break;
+        default: break;
+    }
+
+    switch (control.MuxINC) {
+        case 0b0:
+            break;
+        case 0b1:
+            PC += stoll(current_instruction.immediate, nullptr, 16) - INSTRUCTION_SIZE;
+            break;
+        default: break;
+    }
 }
 
 void Simulator::RegisterState() {

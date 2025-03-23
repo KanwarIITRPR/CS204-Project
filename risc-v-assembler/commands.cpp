@@ -31,6 +31,17 @@ extern vector<string> machineCodeDivision;
 extern int current_address;
 extern map<string, int> label_address;
 
+map<string, int> bytes = {
+    {"lb", 1},
+    {"lh", 2},
+    {"lw", 4},
+    {"ld", 8},
+    {"sb", 1},
+    {"sh", 2},
+    {"sw", 4},
+    {"sd", 8}
+};
+
 void InitializeInstructions() {
     instruction_format_mapping["add"] = R;
     instruction_format_mapping["sub"] = R;
