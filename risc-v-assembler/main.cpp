@@ -157,50 +157,51 @@ void ProcessData() {
     }
 }
 
+void ConvertToMachineLanguage(string input_file, string output_file) {
+    fin.open(input_file);
+    fout.open(output_file);
+    if (!fin.is_open() || !fout.is_open()) {
+        cerr << "Error: Unable to open files" << endl;
+        return;
+    }
+
+    InitializeInstructions();
+    DefineCodes();
+    ExtractLabelAddresses();
+
+    int text_mode = 1;
+    bool actually_started = false;
+    current_address = TEXT_ADDRESS;
+    while (getline(fin, instruction)) {
+        if (Tokenize().empty()) continue;
+
+        if (tokens[0] == ".data") {
+            if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
+            text_mode = 0;
+            current_address = DATA_ADDRESS;
+            fout << ".data" << endl;
+            continue;
+        } else if (tokens[0] == ".text") {
+            if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
+            text_mode = 1;
+            current_address = TEXT_ADDRESS;
+            fout << ".text" << endl;
+            continue;
+        }
+        
+        if (text_mode) ProcessCode();
+        else ProcessData();
+        actually_started = true;
+    }
+    if (text_mode) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
+    else fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
+}
+
 // int main(int argC, char* argV[]) {
 //     if (argC < 3) {
 //         cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
 //         return 1;
 //     }
 
-//     fin.open(argV[1]);
-//     fout.open(argV[2]);
-//     if (!fin.is_open() || !fout.is_open()) {
-//         cerr << "Error: Unable to open files" << endl;
-//         return 1;
-//     }
-
-//     InitializeInstructions();
-//     DefineCodes();
-
-//     ExtractLabelAddresses();
-
-//     int text_mode = 1;
-//     bool actually_started = false;
-//     current_address = TEXT_ADDRESS;
-//     while (getline(fin, instruction)) {
-//         if (Tokenize().empty()) continue;
-
-//         if (tokens[0] == ".data") {
-//             if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
-//             text_mode = 0;
-//             current_address = DATA_ADDRESS;
-//             fout << ".data" << endl;
-//             continue;
-//         } else if (tokens[0] == ".text") {
-//             if (actually_started) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
-//             text_mode = 1;
-//             current_address = TEXT_ADDRESS;
-//             fout << ".text" << endl;
-//             continue;
-//         }
-        
-//         if (text_mode) ProcessCode();
-//         else ProcessData();
-//         actually_started = true;
-//     }
-//     if (text_mode) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
-//     else fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
-
-//     return 0;
+//     ConvertToMachineLanguage(argV[1], argV[2]);
 // }

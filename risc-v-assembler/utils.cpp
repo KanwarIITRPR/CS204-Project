@@ -54,3 +54,9 @@ string BinaryToHex(string binaryNumber) {
     }
     return hexadecimal;
 }
+
+uint32_t arithmeticRightShift(uint32_t x, uint32_t n) {
+    uint32_t signBit = x & 0x80000000;
+    uint32_t mask = (-(signBit >> 31)) & (~(0xFFFFFFFF >> n));
+    return (x >> n) | mask;
+}

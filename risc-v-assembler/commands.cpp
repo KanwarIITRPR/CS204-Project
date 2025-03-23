@@ -297,8 +297,8 @@ void S_FormatDivision() {
 
     string opcode = s_opcode[tokens[0]];
     string funct3 = s_funct3[tokens[0]];
-    string rs1 = tokens[1];
-    string rs2 = tokens[2];
+    string rs1 = tokens[2];
+    string rs2 = tokens[1];
     string immediate = tokens[3];
 
     if (!(IsValidRegister(rs1) && IsValidRegister(rs2))) {
