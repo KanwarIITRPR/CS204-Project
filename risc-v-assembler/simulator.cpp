@@ -27,6 +27,7 @@ class ControlCircuit {
         void UpdateDecodeSignals();
         void UpdateExecuteSignals();
         void UpdateMemorySignals();
+        void UpdateWritebackSignals();
 
         Instruction current_instruction;
         uint8_t MuxA = 0;
@@ -48,6 +49,7 @@ void ControlCircuit::UpdateControlSignals() {
     UpdateDecodeSignals();
     UpdateExecuteSignals();
     UpdateMemorySignals();
+    UpdateWritebackSignals();
 }
 
 void ControlCircuit::UpdateDecodeSignals() {
@@ -110,6 +112,16 @@ void ControlCircuit::UpdateMemorySignals() {
     else MuxINC = 0b0; // Select 4
 }
 
+void ControlCircuit::UpdateWritebackSignals() {
+    string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
+    
+    if (current_instruction.format == R) MuxY = 0b1; // Select RZ
+    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxY = 0b10; // Select MDR
+    else if (command == "jalr" || current_instruction.format == UJ) MuxY = 0b11; // Select Return Address
+    else if (current_instruction.format == I || current_instruction.format == U) MuxY = 0b1; // Select RZ
+    else MuxY = 0b0;
+}
+
 class Simulator {
     public:
         void Initialize(string mc_file);
@@ -117,6 +129,7 @@ class Simulator {
         void Decode();
         void Execute();
         void MemoryAccess();
+        void Writeback();
         uint32_t GetValueFromMemory(uint32_t location, int bytes);
         void StoreValueInMemory(uint32_t location, uint32_t data, int bytes);
         void RegisterState();
@@ -211,6 +224,7 @@ void Simulator::RunInstruction() {
     Decode();
     Execute();
     MemoryAccess();
+    Writeback();
     RegisterState();
     cout << endl;
 }
@@ -318,7 +332,7 @@ void Simulator::Execute() {
     }
 
     control.IncrementClock();
-    cout << "Decode Completed" << endl;
+    cout << "Execute Completed" << endl;
 }
 
 uint32_t Simulator::GetValueFromMemory(uint32_t location, int bytes = 0) {
@@ -391,11 +405,41 @@ void Simulator::MemoryAccess() {
             break;
         default: break;
     }
+
+    control.IncrementClock();
+    cout << "Memory Access Completed" << endl;
+}
+
+void Simulator::Writeback() {
+    switch (control.MuxY) {
+        case 0b1:
+            RY = RZ;
+            break;
+        case 0b10:
+            RY = MDR;
+            break;
+        case 0b11:
+            RY = PC;
+            break;
+        default: break;
+    }
+
+    if (control.MuxY) {
+        registers[stoi(current_instruction.rd, nullptr, 16)] = RY;
+    }
+
+    control.IncrementClock();
+    cout << "Writeback Completed" << endl;
 }
 
 void Simulator::RegisterState() {
     cout << "RA: " << RA << endl;
     cout << "RB: " << RB << endl;
+    cout << "RM: " << RM << endl;
+    cout << "RY: " << RY << endl;
+    cout << "RZ: " << RZ << endl;
+    cout << "MAR: " << MAR << endl;
+    cout << "MDR: " << MDR << endl;
     cout << "IR: " << IR << endl;
     cout << "PC: " << PC << endl;
     for (size_t i = 0; i < REGISTER_COUNT; i++) cout << "x" << i << ": " << registers[i] << endl;
