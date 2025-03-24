@@ -48,21 +48,6 @@ It supports a wide range of standard RISC-V instruction formats and data directi
   - Section markers for text and data segments
 
 ## Project Structure
-
-```
-README.md          # This file
-risc-v-assembler/
-├── main.cpp       # Main driver program
-├── commands.cpp   # Instruction encodings and format checking
-└── utils.cpp      # Utility functions
-example/
-├── a.exe          # Compiled program
-├── input.asm      # RISC-V assembly program to be assembled
-└── output.mc      # Assembled machine code
-attachments/
-└── ok.svg         # Diagram explaining the working of the assembler
-```
-
 ### File Descriptions
 
 1. **main.cpp**: The main driver program that orchestrates the assembly process, including file I/O, two-pass assembly, and output generation.
