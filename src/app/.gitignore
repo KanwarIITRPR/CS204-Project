@@ -1,0 +1,5 @@
+# Remove VS Code Properties Folder
+.vscode
+
+# Removing any executables that we make for testing our code
+.exe
