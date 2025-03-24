@@ -305,7 +305,7 @@ void Simulator::Decode() {
             RB = registers[stoi(current_instruction.rs2, nullptr, 2)];
             break;
         case 0b10:
-            RB = stoll(current_instruction.immediate, nullptr, 2);
+            RB = BinaryToDecimal(extendBits(DecimalToBinary(stoll(current_instruction.immediate, nullptr, 2), 12)));
             break;
         case 0b11:
             RB = stoll(current_instruction.immediate, nullptr, 2);
@@ -328,25 +328,25 @@ void Simulator::Execute() {
 
     switch (control.ALU) {
         case 0b1:
-            RZ = RA + RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA + RB))); break;
         case 0b10:
-            RZ = RA - RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA - RB))); break;
         case 0b11:
-            RZ = RA * RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA * RB))); break;
         case 0b100:
-            RZ = RA / RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA / RB))); break;
         case 0b101:
-            RZ = RA % RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA % RB))); break;
         case 0b110:
-            RZ = RA ^ RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA ^ RB))); break;
         case 0b111:
-            RZ = RA | RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA | RB))); break;
         case 0b1000:
-            RZ = RA & RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA & RB))); break;
         case 0b1001:
-            RZ = RA << RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA << RB))); break;
         case 0b1010:
-            RZ = RA >> RB; break;
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA >> RB))); break;
         case 0b1011:
             RZ = arithmeticRightShift(RA, RB); break;
         case 0b1100:
@@ -360,8 +360,8 @@ void Simulator::Execute() {
         case 0b10000:
             control.MuxINC = (int32_t) RA >= (int32_t) RB; break;
         case 0b10001:
-            RB = RB << 12;
-            RZ = RA + RB;
+            RB = BinaryToDecimal(extendBits(DecimalToBinary(RB << 12)));
+            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA + RB)));
             break;
         default: break;
     }
@@ -387,7 +387,7 @@ uint32_t Simulator::GetValueFromMemory(uint32_t location, int bytes = 0) {
 void Simulator::StoreValueInMemory(uint32_t location, uint32_t data, int bytes = 0) {
     for (size_t i = 0; i < bytes; i++) {
         data_map[location + i] = data % 0x100;
-        data >> 8;
+        data = data >> 8;
     }
 }
 
@@ -486,7 +486,7 @@ void Simulator::RegisterState() {
     cout << "MDR: " << MDR << endl;
     cout << "IR: " << IR << endl;
     cout << "PC: " << PC << endl;
-    for (size_t i = 0; i < REGISTER_COUNT; i++) cout << "x" << dec << i << ": " << registers[i] << endl;
+    for (size_t i = 0; i < REGISTER_COUNT; i++) cout << "x" << dec << i << ": " << hex << registers[i] << endl;
     for (auto pair: data_map) cout << hex << pair.first << " " << (int) pair.second << endl;
 
 }
@@ -498,8 +498,8 @@ int main(int argC, char** argV) {
     }
 
     Simulator sim;
-    sim.Run(argV, false);
-    // sim.Step(argV, false);
+    // sim.Run(argV, false);
+    sim.Step(argV, false);
 
 
     fin.close();
