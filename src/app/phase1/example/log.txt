@@ -1,0 +1,385 @@
+Fetch Completed: 0x100005B7 lui x11, 0x10000 
+Decode Completed: 0x100005B7 lui x11, 0x10000 
+Execute Completed: 0x100005B7 lui x11, 0x10000 
+Memory Access Completed: 0x100005B7 lui x11, 0x10000 
+Writeback Completed: 0x100005B7 lui x11, 0x10000 
+Fetch Completed: 0x00058583 lb x11, x11, 0 
+Decode Completed: 0x00058583 lb x11, x11, 0 
+Execute Completed: 0x00058583 lb x11, x11, 0 
+Memory Access Completed: 0x00058583 lb x11, x11, 0 
+Writeback Completed: 0x00058583 lb x11, x11, 0 
+Fetch Completed: 0xFFF00893 addi x17, x0, -1 
+Decode Completed: 0xFFF00893 addi x17, x0, -1 
+Execute Completed: 0xFFF00893 addi x17, x0, -1 
+Memory Access Completed: 0xFFF00893 addi x17, x0, -1 
+Writeback Completed: 0xFFF00893 addi x17, x0, -1 
+Fetch Completed: 0x010000EF jal x1, 8 
+Decode Completed: 0x010000EF jal x1, 8 
+Execute Completed: 0x010000EF jal x1, 8 
+Memory Access Completed: 0x010000EF jal x1, 8 
+Writeback Completed: 0x010000EF jal x1, 8 
+Fetch Completed: 0x00100913 addi x18, x0, 1 
+Decode Completed: 0x00100913 addi x18, x0, 1 
+Execute Completed: 0x00100913 addi x18, x0, 1 
+Memory Access Completed: 0x00100913 addi x18, x0, 1 
+Writeback Completed: 0x00100913 addi x18, x0, 1 
+Fetch Completed: 0x0080006F jal x0, 4 
+Decode Completed: 0x0080006F jal x0, 4 
+Execute Completed: 0x0080006F jal x0, 4 
+Memory Access Completed: 0x0080006F jal x0, 4 
+Writeback Completed: 0x0080006F jal x0, 4 
+Fetch Completed: 0xFFB10113 addi x2, x2, -5 
+Decode Completed: 0xFFB10113 addi x2, x2, -5 
+Execute Completed: 0xFFB10113 addi x2, x2, -5 
+Memory Access Completed: 0xFFB10113 addi x2, x2, -5 
+Writeback Completed: 0xFFB10113 addi x2, x2, -5 
+Fetch Completed: 0x001120A3 sw x1, x2, 1 
+Decode Completed: 0x001120A3 sw x1, x2, 1 
+Execute Completed: 0x001120A3 sw x1, x2, 1 
+Memory Access Completed: 0x001120A3 sw x1, x2, 1 
+Writeback Completed: 0x001120A3 sw x1, x2, 1 
+Fetch Completed: 0x00B10023 sb x11, x2, 0 
+Decode Completed: 0x00B10023 sb x11, x2, 0 
+Execute Completed: 0x00B10023 sb x11, x2, 0 
+Memory Access Completed: 0x00B10023 sb x11, x2, 0 
+Writeback Completed: 0x00B10023 sb x11, x2, 0 
+Fetch Completed: 0x00100913 addi x18, x0, 1 
+Decode Completed: 0x00100913 addi x18, x0, 1 
+Execute Completed: 0x00100913 addi x18, x0, 1 
+Memory Access Completed: 0x00100913 addi x18, x0, 1 
+Writeback Completed: 0x00100913 addi x18, x0, 1 
+Fetch Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Decode Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Execute Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Memory Access Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Writeback Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Fetch Completed: 0x04B95063 bge x18, x11, 32 
+Decode Completed: 0x04B95063 bge x18, x11, 32 
+Execute Completed: 0x04B95063 bge x18, x11, 32 
+Memory Access Completed: 0x04B95063 bge x18, x11, 32 
+Writeback Completed: 0x04B95063 bge x18, x11, 32 
+Fetch Completed: 0xFFF58593 addi x11, x11, -1 
+Decode Completed: 0xFFF58593 addi x11, x11, -1 
+Execute Completed: 0xFFF58593 addi x11, x11, -1 
+Memory Access Completed: 0xFFF58593 addi x11, x11, -1 
+Writeback Completed: 0xFFF58593 addi x11, x11, -1 
+Fetch Completed: 0xFC9FF0EF jal x1, -28 
+Decode Completed: 0xFC9FF0EF jal x1, -28 
+Execute Completed: 0xFC9FF0EF jal x1, -28 
+Memory Access Completed: 0xFC9FF0EF jal x1, -28 
+Writeback Completed: 0xFC9FF0EF jal x1, -28 
+Fetch Completed: 0xFFB10113 addi x2, x2, -5 
+Decode Completed: 0xFFB10113 addi x2, x2, -5 
+Execute Completed: 0xFFB10113 addi x2, x2, -5 
+Memory Access Completed: 0xFFB10113 addi x2, x2, -5 
+Writeback Completed: 0xFFB10113 addi x2, x2, -5 
+Fetch Completed: 0x001120A3 sw x1, x2, 1 
+Decode Completed: 0x001120A3 sw x1, x2, 1 
+Execute Completed: 0x001120A3 sw x1, x2, 1 
+Memory Access Completed: 0x001120A3 sw x1, x2, 1 
+Writeback Completed: 0x001120A3 sw x1, x2, 1 
+Fetch Completed: 0x00B10023 sb x11, x2, 0 
+Decode Completed: 0x00B10023 sb x11, x2, 0 
+Execute Completed: 0x00B10023 sb x11, x2, 0 
+Memory Access Completed: 0x00B10023 sb x11, x2, 0 
+Writeback Completed: 0x00B10023 sb x11, x2, 0 
+Fetch Completed: 0x00100913 addi x18, x0, 1 
+Decode Completed: 0x00100913 addi x18, x0, 1 
+Execute Completed: 0x00100913 addi x18, x0, 1 
+Memory Access Completed: 0x00100913 addi x18, x0, 1 
+Writeback Completed: 0x00100913 addi x18, x0, 1 
+Fetch Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Decode Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Execute Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Memory Access Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Writeback Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Fetch Completed: 0x04B95063 bge x18, x11, 32 
+Decode Completed: 0x04B95063 bge x18, x11, 32 
+Execute Completed: 0x04B95063 bge x18, x11, 32 
+Memory Access Completed: 0x04B95063 bge x18, x11, 32 
+Writeback Completed: 0x04B95063 bge x18, x11, 32 
+Fetch Completed: 0xFFF58593 addi x11, x11, -1 
+Decode Completed: 0xFFF58593 addi x11, x11, -1 
+Execute Completed: 0xFFF58593 addi x11, x11, -1 
+Memory Access Completed: 0xFFF58593 addi x11, x11, -1 
+Writeback Completed: 0xFFF58593 addi x11, x11, -1 
+Fetch Completed: 0xFC9FF0EF jal x1, -28 
+Decode Completed: 0xFC9FF0EF jal x1, -28 
+Execute Completed: 0xFC9FF0EF jal x1, -28 
+Memory Access Completed: 0xFC9FF0EF jal x1, -28 
+Writeback Completed: 0xFC9FF0EF jal x1, -28 
+Fetch Completed: 0xFFB10113 addi x2, x2, -5 
+Decode Completed: 0xFFB10113 addi x2, x2, -5 
+Execute Completed: 0xFFB10113 addi x2, x2, -5 
+Memory Access Completed: 0xFFB10113 addi x2, x2, -5 
+Writeback Completed: 0xFFB10113 addi x2, x2, -5 
+Fetch Completed: 0x001120A3 sw x1, x2, 1 
+Decode Completed: 0x001120A3 sw x1, x2, 1 
+Execute Completed: 0x001120A3 sw x1, x2, 1 
+Memory Access Completed: 0x001120A3 sw x1, x2, 1 
+Writeback Completed: 0x001120A3 sw x1, x2, 1 
+Fetch Completed: 0x00B10023 sb x11, x2, 0 
+Decode Completed: 0x00B10023 sb x11, x2, 0 
+Execute Completed: 0x00B10023 sb x11, x2, 0 
+Memory Access Completed: 0x00B10023 sb x11, x2, 0 
+Writeback Completed: 0x00B10023 sb x11, x2, 0 
+Fetch Completed: 0x00100913 addi x18, x0, 1 
+Decode Completed: 0x00100913 addi x18, x0, 1 
+Execute Completed: 0x00100913 addi x18, x0, 1 
+Memory Access Completed: 0x00100913 addi x18, x0, 1 
+Writeback Completed: 0x00100913 addi x18, x0, 1 
+Fetch Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Decode Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Execute Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Memory Access Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Writeback Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Fetch Completed: 0x04B95063 bge x18, x11, 32 
+Decode Completed: 0x04B95063 bge x18, x11, 32 
+Execute Completed: 0x04B95063 bge x18, x11, 32 
+Memory Access Completed: 0x04B95063 bge x18, x11, 32 
+Writeback Completed: 0x04B95063 bge x18, x11, 32 
+Fetch Completed: 0xFFF58593 addi x11, x11, -1 
+Decode Completed: 0xFFF58593 addi x11, x11, -1 
+Execute Completed: 0xFFF58593 addi x11, x11, -1 
+Memory Access Completed: 0xFFF58593 addi x11, x11, -1 
+Writeback Completed: 0xFFF58593 addi x11, x11, -1 
+Fetch Completed: 0xFC9FF0EF jal x1, -28 
+Decode Completed: 0xFC9FF0EF jal x1, -28 
+Execute Completed: 0xFC9FF0EF jal x1, -28 
+Memory Access Completed: 0xFC9FF0EF jal x1, -28 
+Writeback Completed: 0xFC9FF0EF jal x1, -28 
+Fetch Completed: 0xFFB10113 addi x2, x2, -5 
+Decode Completed: 0xFFB10113 addi x2, x2, -5 
+Execute Completed: 0xFFB10113 addi x2, x2, -5 
+Memory Access Completed: 0xFFB10113 addi x2, x2, -5 
+Writeback Completed: 0xFFB10113 addi x2, x2, -5 
+Fetch Completed: 0x001120A3 sw x1, x2, 1 
+Decode Completed: 0x001120A3 sw x1, x2, 1 
+Execute Completed: 0x001120A3 sw x1, x2, 1 
+Memory Access Completed: 0x001120A3 sw x1, x2, 1 
+Writeback Completed: 0x001120A3 sw x1, x2, 1 
+Fetch Completed: 0x00B10023 sb x11, x2, 0 
+Decode Completed: 0x00B10023 sb x11, x2, 0 
+Execute Completed: 0x00B10023 sb x11, x2, 0 
+Memory Access Completed: 0x00B10023 sb x11, x2, 0 
+Writeback Completed: 0x00B10023 sb x11, x2, 0 
+Fetch Completed: 0x00100913 addi x18, x0, 1 
+Decode Completed: 0x00100913 addi x18, x0, 1 
+Execute Completed: 0x00100913 addi x18, x0, 1 
+Memory Access Completed: 0x00100913 addi x18, x0, 1 
+Writeback Completed: 0x00100913 addi x18, x0, 1 
+Fetch Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Decode Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Execute Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Memory Access Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Writeback Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Fetch Completed: 0x04B95063 bge x18, x11, 32 
+Decode Completed: 0x04B95063 bge x18, x11, 32 
+Execute Completed: 0x04B95063 bge x18, x11, 32 
+Memory Access Completed: 0x04B95063 bge x18, x11, 32 
+Writeback Completed: 0x04B95063 bge x18, x11, 32 
+Fetch Completed: 0xFFF58593 addi x11, x11, -1 
+Decode Completed: 0xFFF58593 addi x11, x11, -1 
+Execute Completed: 0xFFF58593 addi x11, x11, -1 
+Memory Access Completed: 0xFFF58593 addi x11, x11, -1 
+Writeback Completed: 0xFFF58593 addi x11, x11, -1 
+Fetch Completed: 0xFC9FF0EF jal x1, -28 
+Decode Completed: 0xFC9FF0EF jal x1, -28 
+Execute Completed: 0xFC9FF0EF jal x1, -28 
+Memory Access Completed: 0xFC9FF0EF jal x1, -28 
+Writeback Completed: 0xFC9FF0EF jal x1, -28 
+Fetch Completed: 0xFFB10113 addi x2, x2, -5 
+Decode Completed: 0xFFB10113 addi x2, x2, -5 
+Execute Completed: 0xFFB10113 addi x2, x2, -5 
+Memory Access Completed: 0xFFB10113 addi x2, x2, -5 
+Writeback Completed: 0xFFB10113 addi x2, x2, -5 
+Fetch Completed: 0x001120A3 sw x1, x2, 1 
+Decode Completed: 0x001120A3 sw x1, x2, 1 
+Execute Completed: 0x001120A3 sw x1, x2, 1 
+Memory Access Completed: 0x001120A3 sw x1, x2, 1 
+Writeback Completed: 0x001120A3 sw x1, x2, 1 
+Fetch Completed: 0x00B10023 sb x11, x2, 0 
+Decode Completed: 0x00B10023 sb x11, x2, 0 
+Execute Completed: 0x00B10023 sb x11, x2, 0 
+Memory Access Completed: 0x00B10023 sb x11, x2, 0 
+Writeback Completed: 0x00B10023 sb x11, x2, 0 
+Fetch Completed: 0x00100913 addi x18, x0, 1 
+Decode Completed: 0x00100913 addi x18, x0, 1 
+Execute Completed: 0x00100913 addi x18, x0, 1 
+Memory Access Completed: 0x00100913 addi x18, x0, 1 
+Writeback Completed: 0x00100913 addi x18, x0, 1 
+Fetch Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Decode Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Execute Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Memory Access Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Writeback Completed: 0xFA05C4E3 blt x11, x0, logical_error 
+Fetch Completed: 0x04B95063 bge x18, x11, 32 
+Decode Completed: 0x04B95063 bge x18, x11, 32 
+Execute Completed: 0x04B95063 bge x18, x11, 32 
+Memory Access Completed: 0x04B95063 bge x18, x11, 32 
+Writeback Completed: 0x04B95063 bge x18, x11, 32 
+Fetch Completed: 0x00100893 addi x17, x0, 1 
+Decode Completed: 0x00100893 addi x17, x0, 1 
+Execute Completed: 0x00100893 addi x17, x0, 1 
+Memory Access Completed: 0x00100893 addi x17, x0, 1 
+Writeback Completed: 0x00100893 addi x17, x0, 1 
+Fetch Completed: 0x00008067 jalr x0, x1, 0 
+Decode Completed: 0x00008067 jalr x0, x1, 0 
+Execute Completed: 0x00008067 jalr x0, x1, 0 
+Memory Access Completed: 0x00008067 jalr x0, x1, 0 
+Writeback Completed: 0x00008067 jalr x0, x1, 0 
+Fetch Completed: 0x00010583 lb x11, x2, 0 
+Decode Completed: 0x00010583 lb x11, x2, 0 
+Execute Completed: 0x00010583 lb x11, x2, 0 
+Memory Access Completed: 0x00010583 lb x11, x2, 0 
+Writeback Completed: 0x00010583 lb x11, x2, 0 
+Fetch Completed: 0x00112083 lw x1, x2, 1 
+Decode Completed: 0x00112083 lw x1, x2, 1 
+Execute Completed: 0x00112083 lw x1, x2, 1 
+Memory Access Completed: 0x00112083 lw x1, x2, 1 
+Writeback Completed: 0x00112083 lw x1, x2, 1 
+Fetch Completed: 0x00510113 addi x2, x2, 5 
+Decode Completed: 0x00510113 addi x2, x2, 5 
+Execute Completed: 0x00510113 addi x2, x2, 5 
+Memory Access Completed: 0x00510113 addi x2, x2, 5 
+Writeback Completed: 0x00510113 addi x2, x2, 5 
+Fetch Completed: 0x031588B3 mul x17, x11, x17 
+Decode Completed: 0x031588B3 mul x17, x11, x17 
+Execute Completed: 0x031588B3 mul x17, x11, x17 
+Memory Access Completed: 0x031588B3 mul x17, x11, x17 
+Writeback Completed: 0x031588B3 mul x17, x11, x17 
+Fetch Completed: 0x0100006F jal x0, 8 
+Decode Completed: 0x0100006F jal x0, 8 
+Execute Completed: 0x0100006F jal x0, 8 
+Memory Access Completed: 0x0100006F jal x0, 8 
+Writeback Completed: 0x0100006F jal x0, 8 
+Fetch Completed: 0x00008067 jalr x0, x1, 0 
+Decode Completed: 0x00008067 jalr x0, x1, 0 
+Execute Completed: 0x00008067 jalr x0, x1, 0 
+Memory Access Completed: 0x00008067 jalr x0, x1, 0 
+Writeback Completed: 0x00008067 jalr x0, x1, 0 
+Fetch Completed: 0x00010583 lb x11, x2, 0 
+Decode Completed: 0x00010583 lb x11, x2, 0 
+Execute Completed: 0x00010583 lb x11, x2, 0 
+Memory Access Completed: 0x00010583 lb x11, x2, 0 
+Writeback Completed: 0x00010583 lb x11, x2, 0 
+Fetch Completed: 0x00112083 lw x1, x2, 1 
+Decode Completed: 0x00112083 lw x1, x2, 1 
+Execute Completed: 0x00112083 lw x1, x2, 1 
+Memory Access Completed: 0x00112083 lw x1, x2, 1 
+Writeback Completed: 0x00112083 lw x1, x2, 1 
+Fetch Completed: 0x00510113 addi x2, x2, 5 
+Decode Completed: 0x00510113 addi x2, x2, 5 
+Execute Completed: 0x00510113 addi x2, x2, 5 
+Memory Access Completed: 0x00510113 addi x2, x2, 5 
+Writeback Completed: 0x00510113 addi x2, x2, 5 
+Fetch Completed: 0x031588B3 mul x17, x11, x17 
+Decode Completed: 0x031588B3 mul x17, x11, x17 
+Execute Completed: 0x031588B3 mul x17, x11, x17 
+Memory Access Completed: 0x031588B3 mul x17, x11, x17 
+Writeback Completed: 0x031588B3 mul x17, x11, x17 
+Fetch Completed: 0x0100006F jal x0, 8 
+Decode Completed: 0x0100006F jal x0, 8 
+Execute Completed: 0x0100006F jal x0, 8 
+Memory Access Completed: 0x0100006F jal x0, 8 
+Writeback Completed: 0x0100006F jal x0, 8 
+Fetch Completed: 0x00008067 jalr x0, x1, 0 
+Decode Completed: 0x00008067 jalr x0, x1, 0 
+Execute Completed: 0x00008067 jalr x0, x1, 0 
+Memory Access Completed: 0x00008067 jalr x0, x1, 0 
+Writeback Completed: 0x00008067 jalr x0, x1, 0 
+Fetch Completed: 0x00010583 lb x11, x2, 0 
+Decode Completed: 0x00010583 lb x11, x2, 0 
+Execute Completed: 0x00010583 lb x11, x2, 0 
+Memory Access Completed: 0x00010583 lb x11, x2, 0 
+Writeback Completed: 0x00010583 lb x11, x2, 0 
+Fetch Completed: 0x00112083 lw x1, x2, 1 
+Decode Completed: 0x00112083 lw x1, x2, 1 
+Execute Completed: 0x00112083 lw x1, x2, 1 
+Memory Access Completed: 0x00112083 lw x1, x2, 1 
+Writeback Completed: 0x00112083 lw x1, x2, 1 
+Fetch Completed: 0x00510113 addi x2, x2, 5 
+Decode Completed: 0x00510113 addi x2, x2, 5 
+Execute Completed: 0x00510113 addi x2, x2, 5 
+Memory Access Completed: 0x00510113 addi x2, x2, 5 
+Writeback Completed: 0x00510113 addi x2, x2, 5 
+Fetch Completed: 0x031588B3 mul x17, x11, x17 
+Decode Completed: 0x031588B3 mul x17, x11, x17 
+Execute Completed: 0x031588B3 mul x17, x11, x17 
+Memory Access Completed: 0x031588B3 mul x17, x11, x17 
+Writeback Completed: 0x031588B3 mul x17, x11, x17 
+Fetch Completed: 0x0100006F jal x0, 8 
+Decode Completed: 0x0100006F jal x0, 8 
+Execute Completed: 0x0100006F jal x0, 8 
+Memory Access Completed: 0x0100006F jal x0, 8 
+Writeback Completed: 0x0100006F jal x0, 8 
+Fetch Completed: 0x00008067 jalr x0, x1, 0 
+Decode Completed: 0x00008067 jalr x0, x1, 0 
+Execute Completed: 0x00008067 jalr x0, x1, 0 
+Memory Access Completed: 0x00008067 jalr x0, x1, 0 
+Writeback Completed: 0x00008067 jalr x0, x1, 0 
+Fetch Completed: 0x00010583 lb x11, x2, 0 
+Decode Completed: 0x00010583 lb x11, x2, 0 
+Execute Completed: 0x00010583 lb x11, x2, 0 
+Memory Access Completed: 0x00010583 lb x11, x2, 0 
+Writeback Completed: 0x00010583 lb x11, x2, 0 
+Fetch Completed: 0x00112083 lw x1, x2, 1 
+Decode Completed: 0x00112083 lw x1, x2, 1 
+Execute Completed: 0x00112083 lw x1, x2, 1 
+Memory Access Completed: 0x00112083 lw x1, x2, 1 
+Writeback Completed: 0x00112083 lw x1, x2, 1 
+Fetch Completed: 0x00510113 addi x2, x2, 5 
+Decode Completed: 0x00510113 addi x2, x2, 5 
+Execute Completed: 0x00510113 addi x2, x2, 5 
+Memory Access Completed: 0x00510113 addi x2, x2, 5 
+Writeback Completed: 0x00510113 addi x2, x2, 5 
+Fetch Completed: 0x031588B3 mul x17, x11, x17 
+Decode Completed: 0x031588B3 mul x17, x11, x17 
+Execute Completed: 0x031588B3 mul x17, x11, x17 
+Memory Access Completed: 0x031588B3 mul x17, x11, x17 
+Writeback Completed: 0x031588B3 mul x17, x11, x17 
+Fetch Completed: 0x0100006F jal x0, 8 
+Decode Completed: 0x0100006F jal x0, 8 
+Execute Completed: 0x0100006F jal x0, 8 
+Memory Access Completed: 0x0100006F jal x0, 8 
+Writeback Completed: 0x0100006F jal x0, 8 
+Fetch Completed: 0x00008067 jalr x0, x1, 0 
+Decode Completed: 0x00008067 jalr x0, x1, 0 
+Execute Completed: 0x00008067 jalr x0, x1, 0 
+Memory Access Completed: 0x00008067 jalr x0, x1, 0 
+Writeback Completed: 0x00008067 jalr x0, x1, 0 
+Fetch Completed: 0x00010583 lb x11, x2, 0 
+Decode Completed: 0x00010583 lb x11, x2, 0 
+Execute Completed: 0x00010583 lb x11, x2, 0 
+Memory Access Completed: 0x00010583 lb x11, x2, 0 
+Writeback Completed: 0x00010583 lb x11, x2, 0 
+Fetch Completed: 0x00112083 lw x1, x2, 1 
+Decode Completed: 0x00112083 lw x1, x2, 1 
+Execute Completed: 0x00112083 lw x1, x2, 1 
+Memory Access Completed: 0x00112083 lw x1, x2, 1 
+Writeback Completed: 0x00112083 lw x1, x2, 1 
+Fetch Completed: 0x00510113 addi x2, x2, 5 
+Decode Completed: 0x00510113 addi x2, x2, 5 
+Execute Completed: 0x00510113 addi x2, x2, 5 
+Memory Access Completed: 0x00510113 addi x2, x2, 5 
+Writeback Completed: 0x00510113 addi x2, x2, 5 
+Fetch Completed: 0x031588B3 mul x17, x11, x17 
+Decode Completed: 0x031588B3 mul x17, x11, x17 
+Execute Completed: 0x031588B3 mul x17, x11, x17 
+Memory Access Completed: 0x031588B3 mul x17, x11, x17 
+Writeback Completed: 0x031588B3 mul x17, x11, x17 
+Fetch Completed: 0x0100006F jal x0, 8 
+Decode Completed: 0x0100006F jal x0, 8 
+Execute Completed: 0x0100006F jal x0, 8 
+Memory Access Completed: 0x0100006F jal x0, 8 
+Writeback Completed: 0x0100006F jal x0, 8 
+Fetch Completed: 0x00008067 jalr x0, x1, 0 
+Decode Completed: 0x00008067 jalr x0, x1, 0 
+Execute Completed: 0x00008067 jalr x0, x1, 0 
+Memory Access Completed: 0x00008067 jalr x0, x1, 0 
+Writeback Completed: 0x00008067 jalr x0, x1, 0 
+Fetch Completed: 0x0900006F jal x0, 72 
+Decode Completed: 0x0900006F jal x0, 72 
+Execute Completed: 0x0900006F jal x0, 72 
+Memory Access Completed: 0x0900006F jal x0, 72 
+Writeback Completed: 0x0900006F jal x0, 72 

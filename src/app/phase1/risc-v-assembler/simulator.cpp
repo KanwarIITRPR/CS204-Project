@@ -20,6 +20,11 @@ struct Instruction {
     Stage stage;
 };
 
+
+ofstream prerout("C:/Users/Admin/OneDrive/Desktop/CS204-Project/src/app/phase1/example/preregister.txt");
+ofstream logout("C:/Users/Admin/OneDrive/Desktop/CS204-Project/src/app/phase1/example/log.txt");
+ofstream dataout("C:/Users/Admin/OneDrive/Desktop/CS204-Project/src/app/phase1/example/datamap.txt");
+
 class ControlCircuit {
     public:
         void UpdateControlSignals();
@@ -257,16 +262,15 @@ void Simulator::RunInstruction(bool each_stage = true) {
     current_instruction.stage = FETCH;
     Fetch();
     if (reached_end) return;
-    if (each_stage) RegisterState();
+    if (each_stage);
     Decode();
-    if (each_stage) RegisterState();
+    if (each_stage);
     Execute();
-    if (each_stage) RegisterState();
+    if (each_stage);
     MemoryAccess();
-    if (each_stage) RegisterState();
+    if (each_stage);
     Writeback();
-    RegisterState();
-    cout << current_instruction.literal << endl << endl;
+    // cout << current_instruction.literal << endl << endl;
 }
 
 void Simulator::Fetch() {
@@ -279,7 +283,7 @@ void Simulator::Fetch() {
     
     control.current_instruction = current_instruction;
     control.IncrementClock();
-    cout << "Fetch Completed" << endl;
+    logout << "Fetch Completed: " << current_instruction.machine_code << " " << current_instruction.literal << endl;
     current_instruction.stage = control.current_instruction.stage = DECODE;
     control.UpdateDecodeSignals();
 }
@@ -318,7 +322,7 @@ void Simulator::Decode() {
     }
 
     control.IncrementClock();
-    cout << "Decode Completed" << endl;
+    logout << "Decode Completed: " << current_instruction.machine_code << " " << current_instruction.literal << endl;
     current_instruction.stage = control.current_instruction.stage = EXECUTE;
     control.UpdateExecuteSignals();
 }
@@ -367,7 +371,7 @@ void Simulator::Execute() {
     }
 
     control.IncrementClock();
-    cout << "Execute Completed" << endl;
+    logout << "Execute Completed: " << current_instruction.machine_code << " " << current_instruction.literal << endl;
     current_instruction.stage = control.current_instruction.stage = MEMORY_ACCESS;
     control.UpdateMemorySignals();
 }
@@ -444,7 +448,7 @@ void Simulator::MemoryAccess() {
     }
 
     control.IncrementClock();
-    cout << "Memory Access Completed" << endl;
+    logout << "Memory Access Completed: " << current_instruction.machine_code << " " << current_instruction.literal << endl;
     current_instruction.stage = control.current_instruction.stage = WRITEBACK;
     control.UpdateWritebackSignals();
 }
@@ -470,7 +474,7 @@ void Simulator::Writeback() {
     }
 
     control.IncrementClock();
-    cout << "Writeback Completed" << endl;
+    logout << "Writeback Completed: " << current_instruction.machine_code << " " << current_instruction.literal << endl;
     current_instruction.stage = control.current_instruction.stage = FINISHED;
     registers[0] = 0x0;
     // control.UpdateFetchSignals();
@@ -478,17 +482,17 @@ void Simulator::Writeback() {
 
 
 void Simulator::RegisterState() {
-    cout << "RA: " << hex << RA << endl;
-    cout << "RB: " << RB << endl;
-    cout << "RM: " << RM << endl;
-    cout << "RY: " << RY << endl;
-    cout << "RZ: " << RZ << endl;
-    cout << "MAR: " << MAR << endl;
-    cout << "MDR: " << MDR << endl;
-    cout << "IR: " << IR << endl;
-    cout << "PC: " << PC << endl;
-    for (size_t i = 0; i < REGISTER_COUNT; i++) cout << "x" << dec << i << ": " << hex << registers[i] << endl;
-    for (auto pair: data_map) cout << hex << pair.first << " " << (int) pair.second << endl;
+    prerout << "RA: " << hex << RA << endl;
+    prerout << "RB: " << RB << endl;
+    prerout << "RM: " << RM << endl;
+    prerout << "RY: " << RY << endl;
+    prerout << "RZ: " << RZ << endl;
+    prerout << "MAR: " << MAR << endl;
+    prerout << "MDR: " << MDR << endl;
+    prerout << "IR: " << IR << endl;
+    prerout << "PC: " << PC << endl << endl;
+    for (size_t i = 0; i < REGISTER_COUNT; i++) prerout << "x" << dec << i << ": " << hex << registers[i] << endl;
+    for (auto pair: data_map) dataout << hex << pair.first << " " << (int) pair.second << endl;
 
 }
 
@@ -499,8 +503,9 @@ int main(int argC, char** argV) {
     }
 
     Simulator sim;
-    // sim.Run(argV, false);
-    sim.Step(argV, false);
+    sim.Run(argV, false);
+    sim.RegisterState();
+    // sim.Step(argV, false);
 
 
     fin.close();
