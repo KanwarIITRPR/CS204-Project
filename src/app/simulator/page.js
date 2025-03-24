@@ -2,13 +2,13 @@
 import { useState, useEffect } from "react";
 import MemoryTab from "../memory/page";
 
-export default function SimulatorTab({ editorCode }) {
+export default function SimulatorTab({ editorCode, outputData, setOutputData, memoryData, setMemoryData, isAssembled, setIsAssembled }) {
   const [consoleOutput, setConsoleOutput] = useState("console output");
   const [activeTab, setActiveTab] = useState("registers");
   const [displayMode, setDisplayMode] = useState("hex");
-  const [outputData, setOutputData] = useState([]);
-  const [isAssembled, setIsAssembled] = useState(false);
-  const [memoryData, setMemoryData] = useState(new Map());
+  // const [outputData, setOutputData] = useState([]);
+  // const [memoryData, setMemoryData] = useState(new Map());
+  // const [isAssembled, setIsAssembled] = useState(false);
 
   const initialRegisters = [
     "0x00000000", "0x00000000", "0x7FFFFFDC", "0x10000000", // x0 - x3
@@ -50,7 +50,7 @@ export default function SimulatorTab({ editorCode }) {
         console.log("Code:", editorCode);
 
         const response = await fetch("http://127.0.0.1:5000/assemble", {
-            method: "POST",
+            method: "POST",   
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code: editorCode }),
         });

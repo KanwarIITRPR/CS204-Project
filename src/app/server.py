@@ -50,7 +50,8 @@ def assemble():
         
         for index, line in enumerate(machine_code_lines):
             # print("line: ", line)
-            parts = line.strip().split()
+            line = line.split("#")[0].strip()  
+            parts = line.split()
             # print("parts: ", parts)
             # Detect section markers
             if "END-OF-TEXT-SEGMENT" in line:
@@ -90,6 +91,7 @@ def assemble():
         return jsonify({"machine_code": assembled_code},{"memory_data":memory_data}) 
 
     except Exception as e:
+        print("Error: ", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/memory", methods=["GET"])
