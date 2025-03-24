@@ -1,0 +1,3 @@
+g++ -o riscmain ./buildv/assembler.cpp
+
+./riscmain input.asm output.mc
