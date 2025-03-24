@@ -2,7 +2,7 @@
 
 ## Overview
 
-This RISC-V assembler is a comprehensive tool that converts RISC-V assembly code into machine code. 
+This RISC-V assembler is a comprehensive tool that converts RISC-V assembly code into machine code.
 
 It supports a wide range of standard RISC-V instruction formats and data directives, producing binary representations of each instruction along with their corresponding hexadecimal machine code and memory addresses.
 
@@ -54,7 +54,8 @@ README.md          # This file
 risc-v-assembler/
 ├── main.cpp       # Main driver program
 ├── commands.cpp   # Instruction encodings and format checking
-└── utils.cpp      # Utility functions
+├── utils.cpp      # Utility functions
+├── simulator.cpp  # RISC-V simulation environment
 example/
 ├── a.exe          # Compiled program
 ├── input.asm      # RISC-V assembly program to be assembled
@@ -66,22 +67,17 @@ attachments/
 ### File Descriptions
 
 1. **main.cpp**: The main driver program that orchestrates the assembly process, including file I/O, two-pass assembly, and output generation.
-
 2. **commands.cpp**: Defines opcode, function code, and other binary encodings for RISC-V instructions according to the RISC-V specification.
-
 3. **utils.cpp**: Contains utility functions for binary/hexadecimal conversions, string manipulation, and other helper functions.
+4. **simulator.cpp**: Implements a RISC-V simulator that emulates instruction execution, handling stages such as Fetch, Decode, Execute, Memory Access, and Writeback. It includes a control circuit for managing execution flow and register updates.
 
 ## How It Works
 
-
 <img src="ok.svg" alt="Alt text" width="75%" height="75%">
-
 
 ### Assembly Process
 
 The assembler uses a two-pass approach to resolve labels and generate machine code:
-
-
 
 #### First Pass
 1. Scan through the entire assembly file
@@ -163,7 +159,6 @@ End of text segment
 End of data segment
 ```
 
-
 ## Error Handling
 
 The assembler performs various error checks:
@@ -174,7 +169,6 @@ The assembler performs various error checks:
 - Missing or inaccessible input/output files
 
 Error messages are printed to standard error with information about the line number and the specific issue encountered.
-
 
 ## Contributors
 
