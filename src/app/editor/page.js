@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import SimulatorTab from "../simulator/page";

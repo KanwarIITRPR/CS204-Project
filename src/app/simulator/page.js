@@ -105,10 +105,6 @@ export default function SimulatorTab({ editorCode }) {
         setMemoryData(newMemoryData);
         setOutputData(newOutputData);
         setIsAssembled(true);
-
-        localStorage.setItem("outputData", JSON.stringify(newOutputData));
-        localStorage.setItem("memoryData", JSON.stringify(Array.from(newMemoryData.entries())));
-        localStorage.setItem("isAssembled", "true");
       } catch (error) {
         console.error("Assembly request failed:", error);
       }
@@ -123,15 +119,6 @@ export default function SimulatorTab({ editorCode }) {
     setRegisters(initialRegisters.map(hex => Convertor(hex, displayMode)));
   }, [displayMode]);
 
-  useEffect(() => {
-    const savedOutputData = localStorage.getItem("outputData");
-    const savedMemoryData = localStorage.getItem("memoryData");
-    const savedIsAssembled = localStorage.getItem("isAssembled");
-  
-    if (savedOutputData) setOutputData(JSON.parse(savedOutputData));
-    if (savedMemoryData) setMemoryData(new Map(JSON.parse(savedMemoryData)));
-    if (savedIsAssembled === "true") setIsAssembled(true);
-  }, []);
 
   return (
     <div className="p-4 text-white h-screen flex flex-col">
