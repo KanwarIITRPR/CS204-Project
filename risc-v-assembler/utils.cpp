@@ -20,11 +20,12 @@ map<string, char> hex_dict = {
     {"1111", 'F'}
 };
 
-int GetDecimalNumber(const string &s) {
-    bool is_hex = (s.substr(0, 2) == "0x");
-    if (is_hex) return stoll(s, nullptr, 16);
+long long GetDecimalNumber(const string &s) {
+    if (s.substr(0, 2) == "0x") return stoll(s, nullptr, 16);
+    if (s.substr(0, 2) == "0b") return stoll(s, nullptr, 2);
+    if (s.substr(0, 2) == "0") return stoll(s, nullptr, 8);
     for (char digit : s) {
-        if (!isdigit(digit)) {
+        if (!isdigit(digit) && digit != '-' && digit != '+') {
             cerr << "Invalid Number";
             return -1;
         }
@@ -32,17 +33,32 @@ int GetDecimalNumber(const string &s) {
     return stoll(s);
 }
 
-string DecimalToBinary(int decimalNumber, int length = -1) {
-    if (!decimalNumber) return string(length, '0');
+string DecimalToBinary(int32_t decimal, int bits = 32) {
+    if (decimal >= 0) return bitset<32>(decimal).to_string().substr(32 - bits);
+    else return bitset<32>(static_cast<uint32_t>(decimal)).to_string().substr(32 - bits);
+}
 
-    string binary = "";
-    while (decimalNumber) {
-        binary = ((decimalNumber % 2 == 0) ? "0" : "1") + binary;
-        decimalNumber /= 2;
+int BinaryToDecimal(const string& binary) {
+    if (binary.empty()) return 0;
+    
+    int result = 0;
+    int significantBits = binary.length();
+    
+    if (binary[0] == '1') result = -pow(2, significantBits - 1);
+    
+    for (int i = 1; i < significantBits; i++) {
+        if (binary[i] == '1') result += pow(2, significantBits - 1 - i);
     }
+    
+    return result;
+}
 
-    while (binary.size() < length) binary = "0" + binary;
-    return binary;
+string extendBits(const string& binary, int targetBits = 32) {
+    if (binary.length() >= targetBits) return binary;
+    char signBit = binary[0];
+    
+    string extension(targetBits - binary.length(), signBit);
+    return extension + binary;
 }
 
 string BinaryToHex(string binaryNumber) {
@@ -59,4 +75,11 @@ uint32_t arithmeticRightShift(uint32_t x, uint32_t n) {
     uint32_t signBit = x & 0x80000000;
     uint32_t mask = (-(signBit >> 31)) & (~(0xFFFFFFFF >> n));
     return (x >> n) | mask;
+}
+
+string trimString(string str) {
+    size_t first = str.find_first_not_of(" \t\r\n");
+    if (first == string::npos) return "";
+    size_t last = str.find_last_not_of(" \t\r\n");
+    return str.substr(first, last - first + 1);
 }

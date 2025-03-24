@@ -18,13 +18,13 @@ vector<string> machineCodeDivision(7);
 int current_address;
 map<string, int> label_address;
 
-vector<string> Tokenize(bool remove_comments = true, bool skip_label = false) {
+vector<string> Tokenize(string line = instruction, bool remove_comments = true, bool skip_label = false) {
     stringstream instructionStream;
     vector<string> currTokens;
     string currToken;
 
-    if (remove_comments && instruction.find("#") != -1) instruction = instruction.substr(0, instruction.find("#"));
-    instructionStream << instruction;
+    if (remove_comments && line.find("#") != -1) line = line.substr(0, line.find("#"));
+    instructionStream << line;
     
     while (instructionStream >> currToken) {
         if (!skip_label && currToken.find(":") != -1) continue;
@@ -38,6 +38,7 @@ void ExtractLabelAddresses() {
     int current_address = TEXT_ADDRESS;
     int text_mode = 1;
     while (getline(fin, instruction)) {
+        instruction = trimString(instruction);
         if (instruction == ".data") {
             current_address = DATA_ADDRESS;
             text_mode = 0;
@@ -48,16 +49,13 @@ void ExtractLabelAddresses() {
             continue;
         }
 
-        Tokenize(true);
+        Tokenize(instruction, true, true);
         if (tokens.empty()) continue;
-
-        bool has_label = false;
-        if (instruction.find(":") != -1) {
-            has_label = true;
-
+        
+        if (instruction.find(":") != -1) {            
             string label_name = instruction.substr(0, instruction.find(":"));
             if (label_name.find(" ") != -1) {
-                cerr << "Invalid Label name!" << endl;
+                cerr << "Invalid Label name! - " << label_name << endl;
                 continue;
             }
             label_address[label_name] = current_address;
@@ -135,13 +133,13 @@ void ProcessData() {
         {".word", 4},
         {".double", 8}
     };
-    
+
     if (address_size[tokens[0]]) {
         for (int i = 1; i < tokens.size(); i++) {
             stringstream token_value;
             token_value << hex << GetDecimalNumber(tokens[i]);
             fout << "0x" << setw(8) << setfill('0') << hex << current_address << " ";
-            fout << "0x" << setw(2 * address_size[tokens[0]]) << setfill('0') << token_value.str() << endl;
+            fout << "0x" << setw(2 * address_size[tokens[0]]) << setfill('0') << token_value.str().substr(max( 0, (int) token_value.str().length() - 2 * address_size[tokens[0]]), 2 * address_size[tokens[0]]) << endl;
             
             current_address += address_size[tokens[0]];
         }
@@ -173,6 +171,7 @@ void ConvertToMachineLanguage(string input_file, string output_file) {
     bool actually_started = false;
     current_address = TEXT_ADDRESS;
     while (getline(fin, instruction)) {
+        instruction = trimString(instruction);
         if (Tokenize().empty()) continue;
 
         if (tokens[0] == ".data") {
@@ -193,8 +192,12 @@ void ConvertToMachineLanguage(string input_file, string output_file) {
         else ProcessData();
         actually_started = true;
     }
+
     if (text_mode) fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-TEXT-SEGMENT" << endl;
     else fout << "0x" << setw(8) << setfill('0') << hex << current_address << " END-OF-DATA-SEGMENT" << endl;
+
+    fin.close();
+    fout.close();
 }
 
 // int main(int argC, char* argV[]) {

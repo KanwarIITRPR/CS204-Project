@@ -202,8 +202,8 @@ void StandardizeOffsetRegisterCombination() {
 
 bool IsValidDirectiveData(const string &data_directive, int bytes) {
     for (string data : tokens) {
-        long long data_value = (data.substr(0, 2) == "0x") ? stoll(data, nullptr, 16) : stoll(data);
-        if (!(data_value <= pow(2, 8 * bytes) - 1 && data_value >= 0)) {
+        long long data_value = GetDecimalNumber(data);
+        if (!(data_value <= pow(2, 8 * bytes - 1) - 1 && data_value >= -pow(2, 8 * bytes - 1))) {
             cerr << "Value of " << data << " exceeds " << data_directive << " size" << endl;
             return false;
         }
@@ -272,7 +272,7 @@ void I_FormatDivision() {
         return;
     }
 
-    if (!(stoll(immediate) >= -2048 && stoll(immediate) <= 2047)) {
+    if (!(GetDecimalNumber(immediate) >= -2048 && GetDecimalNumber(immediate) <= 2047)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -282,7 +282,7 @@ void I_FormatDivision() {
 
     rd = DecimalToBinary(stoi(rd), 5);
     rs1 = DecimalToBinary(stoi(rs1), 5);
-    immediate = DecimalToBinary(stoll(immediate), 12);
+    immediate = DecimalToBinary(GetDecimalNumber(immediate), 12);
     
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = funct3;
@@ -317,7 +317,7 @@ void S_FormatDivision() {
         return;
     }
 
-    if (!(stoll(immediate) >= -2048 && stoll(immediate) <= 2047)) {
+    if (!(GetDecimalNumber(immediate) >= -2048 && GetDecimalNumber(immediate) <= 2047)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -327,7 +327,7 @@ void S_FormatDivision() {
 
     rs1 = DecimalToBinary(stoi(rs1), 5);
     rs2 = DecimalToBinary(stoi(rs2), 5);
-    immediate = DecimalToBinary(stoll(immediate), 12);
+    immediate = DecimalToBinary(GetDecimalNumber(immediate), 12);
 
     string lowerImmediate = immediate.substr(7, 5);
     string upperImmediate = immediate.substr(0, 7);
@@ -364,7 +364,7 @@ void SB_FormatDivision() {
         return;
     }
 
-    if (!(stoll(immediate) >= -4096 && stoll(immediate) <= 4095)) {
+    if (!(GetDecimalNumber(immediate) >= -4096 && GetDecimalNumber(immediate) <= 4095)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -375,7 +375,7 @@ void SB_FormatDivision() {
     rs1 = DecimalToBinary(stoi(rs1), 5);
     rs2 = DecimalToBinary(stoi(rs2), 5);
     immediate = immediate.substr(0, 12);
-    immediate = DecimalToBinary(stoll(immediate), 12);
+    immediate = DecimalToBinary(GetDecimalNumber(immediate), 12);
     
     string lowerImmediate = immediate.substr(8, 4) + immediate[1];
     string upperImmediate = immediate[0] + immediate.substr(2, 6);
@@ -406,7 +406,7 @@ void U_FormatDivision() {
         return;
     }
 
-    if (!(stoll(immediate) >= -pow(2, 20) && stoll(immediate) <= pow(2, 20) - 1)) {
+    if (!(GetDecimalNumber(immediate) >= -pow(2, 20) && GetDecimalNumber(immediate) <= pow(2, 20) - 1)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -414,7 +414,7 @@ void U_FormatDivision() {
     rd.erase(0, 1);
 
     rd = DecimalToBinary(stoi(rd), 5);
-    immediate = DecimalToBinary(stoll(immediate), 20);
+    immediate = DecimalToBinary(GetDecimalNumber(immediate), 20);
     
     machineCodeDivision[0] = opcode;
     machineCodeDivision[1] = "NULL";
@@ -433,7 +433,7 @@ void UJ_FormatDivision() {
         return;
     }
 
-    int offset = label_address[tokens[3]] - current_address;
+    int offset = label_address[tokens[2]] - current_address;
 
     string opcode = uj_opcode[tokens[0]];
     string rd = tokens[1];
@@ -446,7 +446,7 @@ void UJ_FormatDivision() {
         return;
     }
 
-    if (!(stoll(immediate) >= -pow(2, 21) && stoll(immediate) <= pow(2, 21) - 1)) {
+    if (!(GetDecimalNumber(immediate) >= -pow(2, 21) && GetDecimalNumber(immediate) <= pow(2, 21) - 1)) {
         cerr << "Immediate value out of range!" << endl;
         return;
     }
@@ -455,7 +455,7 @@ void UJ_FormatDivision() {
 
     rd = DecimalToBinary(stoi(rd), 5);
     immediate = immediate.substr(0, 20);
-    immediate = DecimalToBinary(stoll(immediate), 20);
+    immediate = DecimalToBinary(GetDecimalNumber(immediate), 20);
 
     string adjustedImmediate = immediate[0] + immediate.substr(10, 10) + immediate[9] + immediate.substr(1, 8);
     
