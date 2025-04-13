@@ -23,7 +23,6 @@ map<string, char> hex_dict = {
 long long GetDecimalNumber(const string &s) {
     if (s.substr(0, 2) == "0x") return stoll(s, nullptr, 16);
     if (s.substr(0, 2) == "0b") return stoll(s, nullptr, 2);
-    if (s.substr(0, 2) == "0") return stoll(s, nullptr, 8);
     for (char digit : s) {
         if (!isdigit(digit) && digit != '-' && digit != '+') {
             cerr << "Invalid Number";
@@ -41,10 +40,8 @@ string DecimalToBinary(int32_t decimal, int bits = 32) {
 int BinaryToDecimal(const string& binary) {
     if (binary.empty()) return 0;
     
-    int result = 0;
     int significantBits = binary.length();
-    
-    if (binary[0] == '1') result = -pow(2, significantBits - 1);
+    int result = (binary[0] == '1') ? -pow(2, significantBits - 1) : 0;
     
     for (int i = 1; i < significantBits; i++) {
         if (binary[i] == '1') result += pow(2, significantBits - 1 - i);
