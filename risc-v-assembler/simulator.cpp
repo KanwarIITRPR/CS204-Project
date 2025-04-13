@@ -1,4 +1,5 @@
 #include <iostream>
+#include <list>
 #include "main.cpp"
 
 #define TEXT_SEGMENT_END "END-OF-TEXT-SEGMENT"
@@ -20,6 +21,43 @@ struct Instruction {
     Stage stage;
 };
 
+struct SpecialRegisters {
+    uint32_t IR, PC, PC_temp;
+    uint32_t RA, RB;
+    uint32_t RM, MAR, MDR;
+    uint32_t RY, RZ;
+};
+
+#define NULL_INSTRUCTION Instruction()
+// class PMI {
+//     public:
+//         uint32_t GetValue(uint32_t location, int bytes);
+//         void StoreValue(uint32_t location, uint32_t data, int bytes);
+
+//     private:
+//         map<uint32_t, uint8_t> data_map;
+//         map<uint32_t, Instruction> text_map;
+// };
+
+// uint32_t PMI::GetValue(uint32_t location, int bytes = 0) {
+//     if (location < DATA_ADDRESS) {
+//         return stoul(text_map[location].machine_code, nullptr, 16);
+//     } else {
+//         uint32_t final_value = 0;
+//         for (size_t i = 0; i < bytes; i++) {
+//             final_value += data_map[location + i] << (8 * i);
+//         }
+//         return BinaryToDecimal(extendBits(DecimalToBinary(final_value, 8 * bytes)));
+//     }
+// }
+
+// void PMI::StoreValue(uint32_t location, uint32_t data, int bytes = 0) {
+//     for (size_t i = 0; i < bytes; i++) {
+//         data_map[location + i] = data % 0x100;
+//         data = data >> 8;
+//     }
+// }
+
 class ControlCircuit {
     public:
         void UpdateControlSignals();
@@ -28,6 +66,8 @@ class ControlCircuit {
         void UpdateExecuteSignals();
         void UpdateMemorySignals();
         void UpdateWritebackSignals();
+
+        uint32_t CyclesExecuted() { return clock; }
 
         Instruction current_instruction;
         uint8_t MuxA = 0;
@@ -41,8 +81,8 @@ class ControlCircuit {
         uint8_t MuxINC = 0;
         uint8_t MuxPC = 0;
 
-        uint32_t clock = 0;
     private:
+        uint32_t clock = 0;
 };
 
 void ControlCircuit::UpdateControlSignals() {
@@ -123,33 +163,48 @@ void ControlCircuit::UpdateWritebackSignals() {
     else MuxY = 0b0;
 }
 
-class Simulator {
+class PipelinedSimulator {
     public:
         void Run(char** argV, bool each_stage);
         void Step(char** argV, bool each_stage);
-        void Initialize(string mc_file);
-        void Fetch();
-        void Decode();
-        void Execute();
-        void MemoryAccess();
-        void Writeback();
+        void RunInstruction(bool each_stage);
+        
+        void InitializeRegisters();
+        void InitialParse(string mc_file);
+
+        Instruction GetInstructionFromMemory(uint32_t location);
         uint32_t GetValueFromMemory(uint32_t location, int bytes);
         void StoreValueInMemory(uint32_t location, uint32_t data, int bytes);
+
         void RegisterState();
-        void RunInstruction(bool each_stage);
-        void InitialParse(string mc_file);
-        void InitializeRegisters();
+
+        void SetKnob1(bool set_value);
+        void SetKnob2(bool set_value);
+        void SetKnob3(bool set_value);
+        void SetKnob4(bool set_value);
+        void SetKnob5(int instruction_index);
+        void SetKnob6(bool set_value);
 
         ControlCircuit control;
-        Instruction current_instruction;
+        Instruction instructions[5]; // 0 - Fetch, ..., 4 - Writeback
+
+        PipelinedSimulator(char** argV) {
+            InitializeRegisters();
+            for (size_t i = 0; i < 5; i++) instructions[i] = NULL_INSTRUCTION;
+            ConvertToMachineLanguage(argV[1], argV[2]);
+            InitialParse(argV[2]);
+        };
         
     private:
         static const int REGISTER_COUNT = 32;
-        uint32_t registers[REGISTER_COUNT];
+        uint32_t register_file[REGISTER_COUNT];
         static const int INSTRUCTION_SIZE = 4;
 
         map<uint32_t, uint8_t> data_map;
         map<uint32_t, Instruction> text_map;
+
+        SpecialRegisters special_registers;
+        SpecialRegisters buffer_registers;
         
         uint32_t RA = 0x00000000;
         uint32_t RB = 0x00000000;
@@ -163,20 +218,27 @@ class Simulator {
         uint32_t PC_temp = 0x00000000;
 
         bool reached_end = false;
+
+        void Fetch();
+        void Decode();
+        void Execute();
+        void MemoryAccess();
+        void Writeback();
+
+        bool hasPipeline = true;
+        bool hasDataForwarding = true;
+        bool printRegisterFile = true;
+        bool printBufferRegisters = true;
+        int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
+        bool printPredictionDetails = true;
 };
 
-void Simulator::Run(char** argV, bool each_stage = true) {
-    ConvertToMachineLanguage(argV[1], argV[2]);
-
-    Initialize(argV[2]);
+void PipelinedSimulator::Run(char** argV, bool each_stage = true) {
     while (!reached_end) RunInstruction(each_stage);
     cout << "Program Ran Successfully!" << endl;
 }
 
-void Simulator::Step(char** argV, bool each_stage = true) {
-    ConvertToMachineLanguage(argV[1], argV[2]);
-
-    Initialize(argV[2]);
+void PipelinedSimulator::Step(char** argV, bool each_stage = true) {
     while (!reached_end) {
         cin.get();
         RunInstruction(each_stage);
@@ -184,14 +246,16 @@ void Simulator::Step(char** argV, bool each_stage = true) {
     cout << "Program Ran Successfully!" << endl;
 }
 
-void Simulator::Initialize(string mc_file) {
-    InitializeInstructions();
-    InitializeRegisters();
-    InitialParse(mc_file);
-    control = ControlCircuit();
+void PipelinedSimulator::InitializeRegisters() {
+    // Picked up from venus, online RISC-V editor
+    for (size_t i = 0; i < REGISTER_COUNT; i++) register_file[i] = 0x00000000;
+    register_file[2] = STACK_ADDRESS;
+    register_file[3] = 0x10000000;
+    register_file[10] = 0x00000001;
+    register_file[11] = STACK_ADDRESS;
 }
 
-void Simulator::InitialParse(string mc_file) {
+void PipelinedSimulator::InitialParse(string mc_file) {
     ifstream machine_file(mc_file);
 
     string machine_line;
@@ -244,16 +308,7 @@ void Simulator::InitialParse(string mc_file) {
     machine_file.close();
 }
 
-void Simulator::InitializeRegisters() {
-    for (size_t i = 0; i < REGISTER_COUNT; i++) registers[i] = 0x00000000;
-    // Picked up from venus, online RISC-V editor
-    registers[2] = STACK_ADDRESS;
-    registers[3] = 0x10000000;
-    registers[10] = 0x00000001;
-    registers[11] = STACK_ADDRESS;
-}
-
-void Simulator::RunInstruction(bool each_stage = true) {
+void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     current_instruction.stage = FETCH;
     Fetch();
     if (reached_end) return;
@@ -269,47 +324,54 @@ void Simulator::RunInstruction(bool each_stage = true) {
     cout << current_instruction.literal << endl << endl;
 }
 
-void Simulator::Fetch() {
+void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
+void PipelinedSimulator::SetKnob2(bool set_value) { hasDataForwarding = set_value; }
+void PipelinedSimulator::SetKnob3(bool set_value) { printRegisterFile = set_value; }
+void PipelinedSimulator::SetKnob4(bool set_value) { printBufferRegisters = set_value; }
+void PipelinedSimulator::SetKnob5(int instruction_index) { SetKnob4(true); specified_instruction = instruction_index; }
+void PipelinedSimulator::SetKnob6(bool set_value) { hasPipeline = set_value; }
+
+void PipelinedSimulator::Fetch() {
     if (text_map.find(PC) == text_map.end()) { reached_end = true; return; }
 
     PC_temp = PC;
-    current_instruction = text_map[PC];
-    IR = stoul(current_instruction.machine_code, nullptr, 16);
+    instructions[0] = GetInstructionFromMemory(PC);
+    IR = GetValueFromMemory(PC);
     PC += INSTRUCTION_SIZE;
     
-    control.current_instruction = current_instruction;
-    control.IncrementClock();
-    cout << "Fetch Completed" << endl;
-    current_instruction.stage = control.current_instruction.stage = DECODE;
+    // control.current_instruction = instructions[0];
+    // cout << "Fetch Completed" << endl;
+    instructions[0].stage = control.current_instruction.stage = DECODE;
     control.UpdateDecodeSignals();
 }
 
-void Simulator::Decode() {
-    if (reached_end) return;
+void PipelinedSimulator::Decode() {
+    Instruction decode_instruction = instructions[1];
+    if (reached_end && decode_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
 
     switch (control.MuxA) {
         case 0b1:
-            RA = registers[stoi(current_instruction.rs1, nullptr, 2)];
+            RA = register_file[stoi(decode_instruction.rs1, nullptr, 2)];
             break;
         case 0b10:
             RA = PC_temp;
             break;
         case 0b11:
-            RA = stoll(current_instruction.immediate, nullptr, 2);
+            RA = stoll(decode_instruction.immediate, nullptr, 2);
             break;
         default: break;
     }
 
     switch (control.MuxB) {
         case 0b1:
-            RB = registers[stoi(current_instruction.rs2, nullptr, 2)];
+            RB = register_file[stoi(decode_instruction.rs2, nullptr, 2)];
             break;
         case 0b10:
-            RB = BinaryToDecimal(extendBits(DecimalToBinary(stoll(current_instruction.immediate, nullptr, 2), 12)));
+            RB = BinaryToDecimal(extendBits(DecimalToBinary(stoll(decode_instruction.immediate, nullptr, 2), 12)));
             break;
         case 0b11:
-            RB = stoll(current_instruction.immediate, nullptr, 2);
-            RM = registers[stoi(current_instruction.rs2, nullptr, 2)];
+            RB = stoll(decode_instruction.immediate, nullptr, 2);
+            RM = register_file[stoi(decode_instruction.rs2, nullptr, 2)];
             break;
         case 0b100:
             RB = 12;
@@ -317,14 +379,15 @@ void Simulator::Decode() {
         default: break;
     }
 
-    control.IncrementClock();
-    cout << "Decode Completed" << endl;
-    current_instruction.stage = control.current_instruction.stage = EXECUTE;
+    // control.IncrementClock();
+    // cout << "Decode Completed" << endl;
+    decode_instruction.stage = control.current_instruction.stage = EXECUTE;
     control.UpdateExecuteSignals();
 }
 
-void Simulator::Execute() {
-    if (reached_end) return;
+void PipelinedSimulator::Execute() {
+    Instruction execute_instruction = instructions[2];
+    if (reached_end && execute_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
 
     switch (control.ALU) {
         case 0b1:
@@ -366,13 +429,22 @@ void Simulator::Execute() {
         default: break;
     }
 
-    control.IncrementClock();
-    cout << "Execute Completed" << endl;
-    current_instruction.stage = control.current_instruction.stage = MEMORY_ACCESS;
+    // control.IncrementClock();
+    // cout << "Execute Completed" << endl;
+    execute_instruction.stage = control.current_instruction.stage = MEMORY_ACCESS;
     control.UpdateMemorySignals();
 }
 
-uint32_t Simulator::GetValueFromMemory(uint32_t location, int bytes = 0) {
+Instruction PipelinedSimulator::GetInstructionFromMemory(uint32_t location) {
+    if (location >= DATA_ADDRESS) {
+        cerr << "Exist doesn't exist in test memory!" << endl;
+        return;
+    }
+
+    return text_map[location];
+}
+
+uint32_t PipelinedSimulator::GetValueFromMemory(uint32_t location, int bytes = 0) {
     if (location < DATA_ADDRESS) {
         return stoul(text_map[location].machine_code, nullptr, 16);
     } else {
@@ -384,15 +456,16 @@ uint32_t Simulator::GetValueFromMemory(uint32_t location, int bytes = 0) {
     }
 }
 
-void Simulator::StoreValueInMemory(uint32_t location, uint32_t data, int bytes = 0) {
+void PipelinedSimulator::StoreValueInMemory(uint32_t location, uint32_t data, int bytes = 0) {
     for (size_t i = 0; i < bytes; i++) {
         data_map[location + i] = data % 0x100;
         data = data >> 8;
     }
 }
 
-void Simulator::MemoryAccess() {
-    if (reached_end) return;
+void PipelinedSimulator::MemoryAccess() {
+    Instruction memory_instruction = instructions[3];
+    if (reached_end && memory_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
 
     switch (control.MuxMA) {
         case 0b1:
@@ -404,7 +477,7 @@ void Simulator::MemoryAccess() {
         default: break;
     }
 
-    string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
+    string command = memory_instruction.literal.substr(0, memory_instruction.literal.find(" "));
     switch (control.MuxMD) {
         case 0b1:
             MDR = GetValueFromMemory(MAR, bytes[command]);
@@ -438,19 +511,20 @@ void Simulator::MemoryAccess() {
         case 0b0:
             break;
         case 0b1:
-            PC = PC_temp + BinaryToDecimal(current_instruction.immediate);
+            PC = PC_temp + BinaryToDecimal(memory_instruction.immediate);
             break;
         default: break;
     }
 
-    control.IncrementClock();
-    cout << "Memory Access Completed" << endl;
-    current_instruction.stage = control.current_instruction.stage = WRITEBACK;
+    // control.IncrementClock();
+    // cout << "Memory Access Completed" << endl;
+    memory_instruction.stage = control.current_instruction.stage = WRITEBACK;
     control.UpdateWritebackSignals();
 }
 
-void Simulator::Writeback() {
-    if (reached_end) return;
+void PipelinedSimulator::Writeback() {
+    Instruction writeback_instruction = instructions[4];
+    if (reached_end && writeback_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
 
     switch (control.MuxY) {
         case 0b1:
@@ -466,17 +540,17 @@ void Simulator::Writeback() {
     }
 
     if (control.MuxY) {
-        registers[stoi(current_instruction.rd, nullptr, 2)] = RY;
+        register_file[stoi(writeback_instruction.rd, nullptr, 2)] = RY;
     }
 
-    control.IncrementClock();
-    cout << "Writeback Completed" << endl;
-    current_instruction.stage = control.current_instruction.stage = FINISHED;
-    registers[0] = 0x0;
+    // control.IncrementClock();
+    // cout << "Writeback Completed" << endl;
+    writeback_instruction.stage = control.current_instruction.stage = FINISHED;
+    register_file[0] = 0x0;
     // control.UpdateFetchSignals();
 }
 
-void Simulator::RegisterState() {
+void PipelinedSimulator::RegisterState() {
     cout << "RA: " << hex << RA << endl;
     cout << "RB: " << RB << endl;
     cout << "RM: " << RM << endl;
@@ -486,7 +560,8 @@ void Simulator::RegisterState() {
     cout << "MDR: " << MDR << endl;
     cout << "IR: " << IR << endl;
     cout << "PC: " << PC << endl;
-    for (size_t i = 0; i < REGISTER_COUNT; i++) cout << "x" << dec << i << ": " << hex << registers[i] << endl;
+    cout << "Clock Cycles: " << control.CyclesExecuted() << endl;
+    for (size_t i = 0; i < REGISTER_COUNT; i++) cout << "x" << dec << i << ": " << hex << register_file[i] << endl;
     for (auto pair: data_map) cout << hex << pair.first << " " << (int) pair.second << endl;
 
 }
@@ -497,9 +572,9 @@ int main(int argC, char** argV) {
         return 1;
     }
 
-    Simulator sim;
-    // sim.Run(argV, false);
-    sim.Step(argV, false);
+    PipelinedSimulator sim(argV);
+    sim.Run(argV, false);
+    // sim.Step(argV, false);
 
 
     fin.close();
