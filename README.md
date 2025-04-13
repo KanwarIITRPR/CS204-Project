@@ -72,12 +72,12 @@ attachments/
 4. **simulator.cpp**: Implements a RISC-V simulator that emulates instruction execution, handling stages such as Fetch, Decode, Execute, Memory Access, and Writeback. It includes a control circuit for managing execution flow and register updates.
 
 ## How It Works
-#PHASE 1
+# PHASE 1
 <img src="ok.svg" alt="Alt text" width="75%" height="75%">
 
 
-#PHASE 2
-<img src="ph2.svg" alt="Alt text" width="95%" height="95%">
+# PHASE 2
+<img src="ph2.svg" alt="Alt text" >
 
 ### Assembly Process
 
