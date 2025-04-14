@@ -12,7 +12,7 @@ enum Stage {
     EXECUTE,
     MEMORY_ACCESS,
     WRITEBACK,
-    FINISHED
+    COMMITTED
 };
 
 struct Instruction {
@@ -163,11 +163,56 @@ void ControlCircuit::UpdateWritebackSignals() {
     else MuxY = 0b0;
 }
 
+bool isNullInstruction(Instruction instruction) { return instruction.machine_code == NULL_INSTRUCTION.machine_code; }
+
 class PipelinedSimulator {
+    private:
+        static const int REGISTER_COUNT = 32;
+        uint32_t register_file[REGISTER_COUNT];
+        static const int INSTRUCTION_SIZE = 4;
+        static const int PIPELINE_STAGES = 5;
+        string stage_name[PIPELINE_STAGES] = {"Fetch", "Decode", "Execute", "Memory Access", "Writeback"};
+
+        map<uint32_t, uint8_t> data_map;
+        map<uint32_t, Instruction> text_map;
+
+        SpecialRegisters sp_registers;
+        SpecialRegisters buffer;
+        
+        uint32_t RA = 0x00000000;
+        uint32_t RB = 0x00000000;
+        uint32_t RM = 0x00000000;
+        uint32_t RY = 0x00000000;
+        uint32_t RZ = 0x00000000;
+        uint32_t MAR = 0x00000000;
+        uint32_t MDR = 0x00000000;
+        uint32_t IR = 0x00000000;
+        
+        uint32_t PC_temp = 0x00000000;
+
+        bool reached_end = false;
+        bool started = false;
+        bool finished = false;
+
+        
+        void Decode();
+        void Execute();
+        void MemoryAccess();
+        void Writeback();
+
+        bool hasPipeline = true;
+        bool hasDataForwarding = true;
+        bool printRegisterFile = true;
+        bool printBufferRegisters = true;
+        int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
+        bool printPredictionDetails = true;
+    
     public:
         void Run(char** argV, bool each_stage);
         void Step(char** argV, bool each_stage);
         void RunInstruction(bool each_stage);
+        void Fetch();
+        uint32_t PC = 0x00000000;
         
         void InitializeRegisters();
         void InitialParse(string mc_file);
@@ -186,51 +231,21 @@ class PipelinedSimulator {
         void SetKnob6(bool set_value);
 
         ControlCircuit control;
-        Instruction instructions[5]; // 0 - Fetch, ..., 4 - Writeback
+        Instruction instructions[PIPELINE_STAGES]; // 0 - Fetch, ..., 4 - Writeback
 
         PipelinedSimulator(char** argV) {
             InitializeRegisters();
-            for (size_t i = 0; i < 5; i++) instructions[i] = NULL_INSTRUCTION;
+            for (size_t i = 0; i < PIPELINE_STAGES; i++) instructions[i] = NULL_INSTRUCTION;
             ConvertToMachineLanguage(argV[1], argV[2]);
             InitialParse(argV[2]);
         };
-        
-    private:
-        static const int REGISTER_COUNT = 32;
-        uint32_t register_file[REGISTER_COUNT];
-        static const int INSTRUCTION_SIZE = 4;
 
-        map<uint32_t, uint8_t> data_map;
-        map<uint32_t, Instruction> text_map;
-
-        SpecialRegisters special_registers;
-        SpecialRegisters buffer_registers;
-        
-        uint32_t RA = 0x00000000;
-        uint32_t RB = 0x00000000;
-        uint32_t RM = 0x00000000;
-        uint32_t RY = 0x00000000;
-        uint32_t RZ = 0x00000000;
-        uint32_t MAR = 0x00000000;
-        uint32_t MDR = 0x00000000;
-        uint32_t IR = 0x00000000;
-        uint32_t PC = 0x00000000;
-        uint32_t PC_temp = 0x00000000;
-
-        bool reached_end = false;
-
-        void Fetch();
-        void Decode();
-        void Execute();
-        void MemoryAccess();
-        void Writeback();
-
-        bool hasPipeline = true;
-        bool hasDataForwarding = true;
-        bool printRegisterFile = true;
-        bool printBufferRegisters = true;
-        int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
-        bool printPredictionDetails = true;
+        // Test Instructions
+        void InstructionsInProcess() {
+            cout << "------ Instructions ------" << endl;
+            for (size_t i = 0; i < PIPELINE_STAGES; i++) cout << stage_name[i][0] << ": " << instructions[i].literal << endl;
+            cout << endl;
+        }
 };
 
 void PipelinedSimulator::Run(char** argV, bool each_stage = true) {
@@ -309,19 +324,38 @@ void PipelinedSimulator::InitialParse(string mc_file) {
 }
 
 void PipelinedSimulator::RunInstruction(bool each_stage = true) {
-    current_instruction.stage = FETCH;
-    Fetch();
-    if (reached_end) return;
-    if (each_stage) RegisterState();
-    Decode();
-    if (each_stage) RegisterState();
-    Execute();
-    if (each_stage) RegisterState();
-    MemoryAccess();
-    if (each_stage) RegisterState();
-    Writeback();
-    RegisterState();
-    cout << current_instruction.literal << endl << endl;
+    instructions[4].stage = COMMITTED;
+    for (size_t i = PIPELINE_STAGES - 1; i > 0; i--) {
+        instructions[i] = instructions[i - 1];
+    }
+
+    if ((!finished && !isNullInstruction(instructions[0])) || (!started && isNullInstruction(instructions[0]))) {
+        Fetch();
+        instructions[0].stage = FETCH;
+        started = true;
+    } else finished = true;
+    
+    if (!isNullInstruction(instructions[1])) {
+        Decode();
+        instructions[1].stage = DECODE;
+    }
+    
+    if (!isNullInstruction(instructions[2])) {
+        Execute();
+        instructions[2].stage = EXECUTE;
+    }
+    
+    if (!isNullInstruction(instructions[3])) {
+        MemoryAccess();
+        instructions[3].stage = MEMORY_ACCESS;
+    }
+    
+    if (!isNullInstruction(instructions[4])) {
+        Writeback();
+        instructions[4].stage = WRITEBACK;
+    }
+    
+    control.IncrementClock();
 }
 
 void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
@@ -332,22 +366,21 @@ void PipelinedSimulator::SetKnob5(int instruction_index) { SetKnob4(true); speci
 void PipelinedSimulator::SetKnob6(bool set_value) { hasPipeline = set_value; }
 
 void PipelinedSimulator::Fetch() {
-    if (text_map.find(PC) == text_map.end()) { reached_end = true; return; }
+    // if (text_map.find(PC) == text_map.end()) { reached_end = true; return; }
 
-    PC_temp = PC;
-    instructions[0] = GetInstructionFromMemory(PC);
-    IR = GetValueFromMemory(PC);
+    sp_registers.PC_temp = buffer.PC;
+    instructions[0] = GetInstructionFromMemory(buffer.PC);
+    IR = GetValueFromMemory(buffer.PC, INSTRUCTION_SIZE);
     PC += INSTRUCTION_SIZE;
     
     // control.current_instruction = instructions[0];
     // cout << "Fetch Completed" << endl;
-    instructions[0].stage = control.current_instruction.stage = DECODE;
-    control.UpdateDecodeSignals();
+    // instructions[0].stage = control.current_instruction.stage = DECODE;
+    // control.UpdateDecodeSignals();
 }
 
 void PipelinedSimulator::Decode() {
     Instruction decode_instruction = instructions[1];
-    if (reached_end && decode_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
 
     switch (control.MuxA) {
         case 0b1:
@@ -387,7 +420,7 @@ void PipelinedSimulator::Decode() {
 
 void PipelinedSimulator::Execute() {
     Instruction execute_instruction = instructions[2];
-    if (reached_end && execute_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
+    if (reached_end && isNullInstruction(execute_instruction)) return;
 
     switch (control.ALU) {
         case 0b1:
@@ -438,7 +471,7 @@ void PipelinedSimulator::Execute() {
 Instruction PipelinedSimulator::GetInstructionFromMemory(uint32_t location) {
     if (location >= DATA_ADDRESS) {
         cerr << "Exist doesn't exist in test memory!" << endl;
-        return;
+        return NULL_INSTRUCTION;
     }
 
     return text_map[location];
@@ -446,6 +479,7 @@ Instruction PipelinedSimulator::GetInstructionFromMemory(uint32_t location) {
 
 uint32_t PipelinedSimulator::GetValueFromMemory(uint32_t location, int bytes = 0) {
     if (location < DATA_ADDRESS) {
+        if (text_map[location].machine_code == NULL_INSTRUCTION.machine_code) return 0;
         return stoul(text_map[location].machine_code, nullptr, 16);
     } else {
         uint32_t final_value = 0;
@@ -465,7 +499,7 @@ void PipelinedSimulator::StoreValueInMemory(uint32_t location, uint32_t data, in
 
 void PipelinedSimulator::MemoryAccess() {
     Instruction memory_instruction = instructions[3];
-    if (reached_end && memory_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
+    if (reached_end && isNullInstruction(memory_instruction)) return;
 
     switch (control.MuxMA) {
         case 0b1:
@@ -524,7 +558,7 @@ void PipelinedSimulator::MemoryAccess() {
 
 void PipelinedSimulator::Writeback() {
     Instruction writeback_instruction = instructions[4];
-    if (reached_end && writeback_instruction.machine_code != NULL_INSTRUCTION.machine_code) return;
+    if (reached_end && isNullInstruction(writeback_instruction)) return;
 
     switch (control.MuxY) {
         case 0b1:
@@ -545,7 +579,7 @@ void PipelinedSimulator::Writeback() {
 
     // control.IncrementClock();
     // cout << "Writeback Completed" << endl;
-    writeback_instruction.stage = control.current_instruction.stage = FINISHED;
+    writeback_instruction.stage = control.current_instruction.stage = COMMITTED;
     register_file[0] = 0x0;
     // control.UpdateFetchSignals();
 }
@@ -573,8 +607,21 @@ int main(int argC, char** argV) {
     }
 
     PipelinedSimulator sim(argV);
-    sim.Run(argV, false);
+    // sim.Run(argV, false);
     // sim.Step(argV, false);
+    sim.RunInstruction();
+    sim.InstructionsInProcess();
+    sim.RunInstruction();
+    sim.InstructionsInProcess();
+    sim.RunInstruction();
+    sim.InstructionsInProcess();
+    sim.RunInstruction();
+    sim.InstructionsInProcess();
+    sim.RunInstruction();
+    sim.InstructionsInProcess();
+    sim.RunInstruction();
+    sim.InstructionsInProcess();
+    
 
 
     fin.close();
