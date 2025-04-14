@@ -2,18 +2,62 @@ import os
 import subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-
+import logging
 app = Flask(__name__)
 CORS(app)
 
-memory = {}  # ✅ Dictionary to store PC → Machine Code
+memory = {}  # Dictionary to store PC → Machine Code
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_PATH = os.path.join(BASE_DIR, "phase1", "example", "input.asm")
 OUTPUT_PATH = os.path.join(BASE_DIR, "phase1", "example", "output.mc")
 ASSEMBLER_PATH = os.path.join(BASE_DIR, "phase1", "risc-v-assembler", "a.exe")
+LOG_PATH = os.path.join(BASE_DIR, "phase1", "example", "log.txt")
+REGISTER_PATH = os.path.join(BASE_DIR, "phase1", "example", "preregister.txt")
 
 
+@app.route("/registers", methods=["GET"])
+def get_registers():
+    if not os.path.exists(REGISTER_PATH):
+        logging.warning("Register file not found at: %s", REGISTER_PATH)
+        return jsonify({"error": "preregister.txt not found"}), 404
+
+    registers = {}
+    try:
+        with open(REGISTER_PATH, "r") as file:
+            lines = file.readlines()[9:]  # Skip first 9 lines
+
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                reg, value = parts
+                if not value.startswith("0x"):
+                    value = "0x" + value
+                # Optional: validate value is valid hex
+                try:
+                    int(value, 16)
+                    registers[reg] = value
+                except ValueError:
+                    logging.error("Invalid hex value for %s: %s", reg, value)
+            else:
+                logging.warning("Malformed register line: %s", line.strip())
+
+        return jsonify({"registers": registers})
+    except Exception as e:
+        logging.exception("Error reading register file:")
+        return jsonify({"error": "Failed to read register file"}), 500
+
+
+@app.route('/read-log')
+def read_log():
+    if not os.path.exists(LOG_PATH):
+        return jsonify({"error": "log.txt not found"})
+    with open(LOG_PATH, "r") as f:
+        lines = f.readlines()
+    return jsonify({"lines": lines})
+
+
+    
 @app.route("/assemble", methods=["POST"])
 def assemble():
     try:
@@ -40,7 +84,7 @@ def assemble():
 
         # Read and process the machine code output
         with open(OUTPUT_PATH, "r") as f:
-            machine_code_lines = f.readlines()  # ✅ Indented correctly
+            machine_code_lines = f.readlines()  
 
         assembled_code = {}
         memory_data = {}
@@ -88,7 +132,7 @@ def assemble():
                 memory_data[address] = data
             # print("memory_data: ", memory_data)
 
-        return jsonify({"machine_code": assembled_code},{"memory_data":memory_data}) 
+        return jsonify([{"machine_code": assembled_code}, {"memory_data": memory_data}]) 
 
     except Exception as e:
         print("Error: ", e)
