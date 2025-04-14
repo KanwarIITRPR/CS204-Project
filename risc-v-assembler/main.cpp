@@ -1,9 +1,4 @@
 #include <bits/stdc++.h>
-#include <iostream>
-#include <string>
-#include <vector>
-#include <map>
-#include <fstream>
 #include "commands.cpp"
 using namespace std;
 
@@ -200,11 +195,11 @@ void ConvertToMachineLanguage(string input_file, string output_file) {
     fout.close();
 }
 
-// int main(int argC, char* argV[]) {
-//     if (argC < 3) {
-//         cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
-//         return 1;
-//     }
+int main(int argC, char* argV[]) {
+    if (argC < 3) {
+        cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
+        return 1;
+    }
 
-//     ConvertToMachineLanguage(argV[1], argV[2]);
-// }
+    ConvertToMachineLanguage(argV[1], argV[2]);
+}

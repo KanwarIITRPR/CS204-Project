@@ -1,5 +1,11 @@
+#ifndef UTILS
+#define UTILS
+
 #include <bits/stdc++.h>
 using namespace std;
+
+string error_file = "./logs/errors.txt";
+ofstream error_stream;
 
 map<string, char> hex_dict = {
     {"0000", '0'},
@@ -80,3 +86,17 @@ string trimString(string str) {
     size_t last = str.find_last_not_of(" \t\r\n");
     return str.substr(first, last - first + 1);
 }
+
+void InitializeFileStreams() {
+    error_stream.open(error_file);
+    if (!error_stream.is_open()) {
+        cout << "Couldn't open error logging file\n";
+        return;
+    }
+}
+
+void CloseFileStreams() {
+    error_stream.close();
+}
+
+#endif
