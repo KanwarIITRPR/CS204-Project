@@ -21,10 +21,9 @@ struct Instruction {
     Stage stage;
 };
 
-struct SpecialRegisters {
-    uint32_t IR, PC, PC_temp;
+struct InterStageRegisters {
     uint32_t RA, RB;
-    uint32_t RM, MAR, MDR;
+    uint32_t RM;
     uint32_t RY, RZ;
 };
 
@@ -69,7 +68,7 @@ class ControlCircuit {
 
         uint32_t CyclesExecuted() { return clock; }
 
-        Instruction current_instruction;
+        // Instruction current_instruction;
         uint8_t MuxA = 0;
         uint8_t MuxB = 0;
         uint8_t ALU = 0;
@@ -80,6 +79,9 @@ class ControlCircuit {
         uint8_t DemuxMD = 0;
         uint8_t MuxINC = 0;
         uint8_t MuxPC = 0;
+        uint8_t EnableRegisterFile = 1;
+
+        PipelinedSimulator simulator;
 
     private:
         uint32_t clock = 0;
@@ -93,21 +95,22 @@ void ControlCircuit::UpdateControlSignals() {
 }
 
 void ControlCircuit::UpdateDecodeSignals() {
-    string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
-    if (current_instruction.format == R || current_instruction.format == I || current_instruction.format == S || current_instruction.format == SB) MuxA = 0b1; // Register Value
+    
+    string command = simulator.instructions[1].literal.substr(0, simulator.instructions[1].literal.find(" "));
+    if (simulator.instructions[1].format == R || simulator.instructions[1].format == I || simulator.instructions[1].format == S || simulator.instructions[1].format == SB) MuxA = 0b1; // Register Value
     else if (command == "auipc") MuxA = 0b10; // PC
     else if (command == "lui") MuxA = 0b11; // Interchange with immediate
     else MuxA = 0b0;
     
-    if (current_instruction.format == R || current_instruction.format == SB) MuxB = 0b1; // Register Value
+    if (simulator.instructions[1].format == R || simulator.instructions[1].format == SB) MuxB = 0b1; // Register Value
     else if (command == "lui") MuxB = 0b100; // 12 ("Interchanged")
-    else if (current_instruction.format == U || current_instruction.format == I) MuxB = 0b10; // Immediate
-    else if (current_instruction.format == S) MuxB = 0b11; // Immediate in RB and Register Value in RM
+    else if (simulator.instructions[1].format == U || simulator.instructions[1].format == I) MuxB = 0b10; // Immediate
+    else if (simulator.instructions[1].format == S) MuxB = 0b11; // Immediate in RB and Register Value in RM
     else MuxB = 0b0;
 }
 
 void ControlCircuit::UpdateExecuteSignals() {
-    string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
+    string command = simulator.instructions[2].literal.substr(0, simulator.instructions[2].literal.find(" "));
     
     if (command == "add" || command == "addi") ALU = 0b1;
     else if (command == "sub") ALU = 0b10;
@@ -126,22 +129,22 @@ void ControlCircuit::UpdateExecuteSignals() {
     else if (command == "blt") ALU = 0b1111;
     else if (command == "bge") ALU = 0b10000;
     else if (command == "auipc") ALU = 0b10001;
-    else if (current_instruction.format == I || current_instruction.format == S) ALU = 0b1;
+    else if (simulator.instructions[2].format == I || simulator.instructions[2].format == S) ALU = 0b1;
     else ALU = 0b0;
 }
 
 void ControlCircuit::UpdateMemorySignals() {
-    string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
+    string command = simulator.instructions[3].literal.substr(0, simulator.instructions[3].literal.find(" "));
 
-    if (current_instruction.stage == FETCH) MuxMA = 0b1;
-    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || current_instruction.format == S) MuxMA = 0b10;
+    if (simulator.instructions[3].stage == FETCH) MuxMA = 0b1;
+    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || simulator.instructions[3].format == S) MuxMA = 0b10;
     else MuxMA = 0b0;
 
-    if (current_instruction.stage == FETCH || command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxMD = 0b1;
-    else if (current_instruction.format == S) MuxMD = 0b10;
+    if (simulator.instructions[3].stage == FETCH || command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxMD = 0b1;
+    else if (simulator.instructions[3].format == S) MuxMD = 0b10;
     else MuxMD = 0b0;
     
-    if (current_instruction.stage == FETCH) DemuxMD = 0b1;
+    if (simulator.instructions[3].stage == FETCH) DemuxMD = 0b1;
     else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") DemuxMD = 0b10;
     else DemuxMD = 0b0;
 
@@ -151,19 +154,24 @@ void ControlCircuit::UpdateMemorySignals() {
     if (command == "jal") MuxINC = 0b1; // Select immediate
     else if (command == "beq" || command == "bne" || command == "blt" || command == "bge") MuxINC = MuxINC; // Already calculated
     else MuxINC = 0b0; // Select 4
-}
 
-void ControlCircuit::UpdateWritebackSignals() {
-    string command = current_instruction.literal.substr(0, current_instruction.literal.find(" "));
-    
-    if (current_instruction.format == R) MuxY = 0b1; // Select RZ
+    if (simulator.instructions[3].format == R) MuxY = 0b1; // Select RZ
     else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxY = 0b10; // Select MDR
-    else if (command == "jalr" || current_instruction.format == UJ) MuxY = 0b11; // Select Return Address
-    else if (current_instruction.format == I || current_instruction.format == U) MuxY = 0b1; // Select RZ
+    else if (command == "jalr" || simulator.instructions[3].format == UJ) MuxY = 0b11; // Select Return Address
+    else if (simulator.instructions[3].format == I || simulator.instructions[3].format == U) MuxY = 0b1; // Select RZ
     else MuxY = 0b0;
 }
 
-bool isNullInstruction(Instruction instruction) { return instruction.machine_code == NULL_INSTRUCTION.machine_code; }
+void ControlCircuit::UpdateWritebackSignals() {
+    string command = simulator.instructions[4].literal.substr(0, simulator.instructions[4].literal.find(" "));
+    
+    if (simulator.instructions[4].format == R) EnableRegisterFile = 0b1; // Select RZ
+    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") EnableRegisterFile = 0b10; // Select MDR
+    else if (command == "jalr" || simulator.instructions[4].format == UJ) EnableRegisterFile = 0b11; // Select Return Address
+    else if (simulator.instructions[4].format == I || simulator.instructions[4].format == U) EnableRegisterFile = 0b1; // Select RZ
+    else MuxY = 0b0;
+}
+
 
 class PipelinedSimulator {
     private:
@@ -176,18 +184,18 @@ class PipelinedSimulator {
         map<uint32_t, uint8_t> data_map;
         map<uint32_t, Instruction> text_map;
 
-        SpecialRegisters sp_registers;
-        SpecialRegisters buffer;
+        InterStageRegisters inter_stage;
+        InterStageRegisters buffer;
         
-        uint32_t RA = 0x00000000;
-        uint32_t RB = 0x00000000;
-        uint32_t RM = 0x00000000;
-        uint32_t RY = 0x00000000;
-        uint32_t RZ = 0x00000000;
+        // uint32_t RA = 0x00000000;
+        // uint32_t RB = 0x00000000;
+        // uint32_t RM = 0x00000000;
+        // uint32_t RY = 0x00000000;
+        // uint32_t RZ = 0x00000000;
         uint32_t MAR = 0x00000000;
         uint32_t MDR = 0x00000000;
         uint32_t IR = 0x00000000;
-        
+        uint32_t PC = 0x00000000;
         uint32_t PC_temp = 0x00000000;
 
         bool reached_end = false;
@@ -216,6 +224,7 @@ class PipelinedSimulator {
         
         void InitializeRegisters();
         void InitialParse(string mc_file);
+        void Reset_x0();
 
         Instruction GetInstructionFromMemory(uint32_t location);
         uint32_t GetValueFromMemory(uint32_t location, int bytes);
@@ -246,7 +255,12 @@ class PipelinedSimulator {
             for (size_t i = 0; i < PIPELINE_STAGES; i++) cout << stage_name[i][0] << ": " << instructions[i].literal << endl;
             cout << endl;
         }
+
+        friend class ControlCircuit;
 };
+
+bool isNullInstruction(Instruction instruction) { return instruction.machine_code == NULL_INSTRUCTION.machine_code; }
+void PipelinedSimulator::Reset_x0() { register_file[0] = 0;}
 
 void PipelinedSimulator::Run(char** argV, bool each_stage = true) {
     while (!reached_end) RunInstruction(each_stage);
@@ -328,6 +342,7 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     for (size_t i = PIPELINE_STAGES - 1; i > 0; i--) {
         instructions[i] = instructions[i - 1];
     }
+    control.UpdateControlSignals();
 
     if ((!finished && !isNullInstruction(instructions[0])) || (!started && isNullInstruction(instructions[0]))) {
         Fetch();
@@ -368,10 +383,12 @@ void PipelinedSimulator::SetKnob6(bool set_value) { hasPipeline = set_value; }
 void PipelinedSimulator::Fetch() {
     // if (text_map.find(PC) == text_map.end()) { reached_end = true; return; }
 
-    sp_registers.PC_temp = buffer.PC;
-    instructions[0] = GetInstructionFromMemory(buffer.PC);
-    IR = GetValueFromMemory(buffer.PC, INSTRUCTION_SIZE);
+    PC_temp = PC;
+    instructions[0] = GetInstructionFromMemory(PC);
+    IR = GetValueFromMemory(PC, INSTRUCTION_SIZE);
     PC += INSTRUCTION_SIZE;
+
+    Reset_x0();
     
     // control.current_instruction = instructions[0];
     // cout << "Fetch Completed" << endl;
@@ -384,88 +401,92 @@ void PipelinedSimulator::Decode() {
 
     switch (control.MuxA) {
         case 0b1:
-            RA = register_file[stoi(decode_instruction.rs1, nullptr, 2)];
+            inter_stage.RA = register_file[stoi(decode_instruction.rs1, nullptr, 2)];
             break;
         case 0b10:
-            RA = PC_temp;
+            inter_stage.RA = PC_temp;
             break;
         case 0b11:
-            RA = stoll(decode_instruction.immediate, nullptr, 2);
+            inter_stage.RA = stoll(decode_instruction.immediate, nullptr, 2);
             break;
         default: break;
     }
 
     switch (control.MuxB) {
         case 0b1:
-            RB = register_file[stoi(decode_instruction.rs2, nullptr, 2)];
+            inter_stage.RB = register_file[stoi(decode_instruction.rs2, nullptr, 2)];
             break;
         case 0b10:
-            RB = BinaryToDecimal(extendBits(DecimalToBinary(stoll(decode_instruction.immediate, nullptr, 2), 12)));
+            inter_stage.RB = BinaryToDecimal(extendBits(DecimalToBinary(stoll(decode_instruction.immediate, nullptr, 2), 12)));
             break;
         case 0b11:
-            RB = stoll(decode_instruction.immediate, nullptr, 2);
-            RM = register_file[stoi(decode_instruction.rs2, nullptr, 2)];
+            inter_stage.RB = stoll(decode_instruction.immediate, nullptr, 2);
+            inter_stage.RM = register_file[stoi(decode_instruction.rs2, nullptr, 2)];
             break;
         case 0b100:
-            RB = 12;
+            inter_stage.RB = 12;
             break;
         default: break;
     }
+
+    Reset_x0();
 
     // control.IncrementClock();
     // cout << "Decode Completed" << endl;
-    decode_instruction.stage = control.current_instruction.stage = EXECUTE;
-    control.UpdateExecuteSignals();
+    // decode_instruction.stage = control.current_instruction.stage = EXECUTE;
+    // control.UpdateExecuteSignals();
 }
 
 void PipelinedSimulator::Execute() {
-    Instruction execute_instruction = instructions[2];
-    if (reached_end && isNullInstruction(execute_instruction)) return;
+    // Instruction execute_instruction = instructions[2];
+    // if (reached_end && isNullInstruction(execute_instruction)) return;
 
     switch (control.ALU) {
         case 0b1:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA + RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA + buffer.RB))); break;
         case 0b10:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA - RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA - buffer.RB))); break;
         case 0b11:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA * RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA * buffer.RB))); break;
         case 0b100:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA / RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA / buffer.RB))); break;
         case 0b101:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA % RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA % buffer.RB))); break;
         case 0b110:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA ^ RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA ^ buffer.RB))); break;
         case 0b111:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA | RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA | buffer.RB))); break;
         case 0b1000:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA & RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA & buffer.RB))); break;
         case 0b1001:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA << RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA << buffer.RB))); break;
         case 0b1010:
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA >> RB))); break;
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA >> buffer.RB))); break;
         case 0b1011:
-            RZ = arithmeticRightShift(RA, RB); break;
+            inter_stage.RZ = arithmeticRightShift(buffer.RA, buffer.RB); break;
         case 0b1100:
-            RZ = ((int32_t) RA < (int32_t) RB) ? 1 : 0; break;
+            inter_stage.RZ = ((int32_t) buffer.RA < (int32_t) buffer.RB) ? 1 : 0; break;
         case 0b1101:
-            control.MuxINC = (int32_t) RA == (int32_t) RB; break;
+            control.MuxINC = (int32_t) buffer.RA == (int32_t) buffer.RB; break;
         case 0b1110:
-            control.MuxINC = (int32_t) RA != (int32_t) RB; break;
+            control.MuxINC = (int32_t) buffer.RA != (int32_t) buffer.RB; break;
         case 0b1111:
-            control.MuxINC = (int32_t) RA < (int32_t) RB; break;
+            control.MuxINC = (int32_t) buffer.RA < (int32_t) buffer.RB; break;
         case 0b10000:
-            control.MuxINC = (int32_t) RA >= (int32_t) RB; break;
+            control.MuxINC = (int32_t) buffer.RA >= (int32_t) buffer.RB; break;
         case 0b10001:
-            RB = BinaryToDecimal(extendBits(DecimalToBinary(RB << 12)));
-            RZ = BinaryToDecimal(extendBits(DecimalToBinary(RA + RB)));
+            inter_stage.RB = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RB << 12)));
+            inter_stage.RZ = BinaryToDecimal(extendBits(DecimalToBinary(buffer.RA + buffer.RB)));
             break;
         default: break;
     }
 
+    Reset_x0();
+
     // control.IncrementClock();
     // cout << "Execute Completed" << endl;
-    execute_instruction.stage = control.current_instruction.stage = MEMORY_ACCESS;
-    control.UpdateMemorySignals();
+    // execute_instruction.stage = control.current_instruction.stage = MEMORY_ACCESS;
+    // control.UpdateMemorySignals();
 }
 
 Instruction PipelinedSimulator::GetInstructionFromMemory(uint32_t location) {
@@ -499,14 +520,14 @@ void PipelinedSimulator::StoreValueInMemory(uint32_t location, uint32_t data, in
 
 void PipelinedSimulator::MemoryAccess() {
     Instruction memory_instruction = instructions[3];
-    if (reached_end && isNullInstruction(memory_instruction)) return;
+    // if (reached_end && isNullInstruction(memory_instruction)) return;
 
     switch (control.MuxMA) {
         case 0b1:
             MAR = PC;
             break;
         case 0b10:
-            MAR = RZ;
+            MAR = buffer.RZ;
             break;
         default: break;
     }
@@ -517,7 +538,7 @@ void PipelinedSimulator::MemoryAccess() {
             MDR = GetValueFromMemory(MAR, bytes[command]);
             break;
         case 0b10:
-            StoreValueInMemory(MAR, RM, bytes[command]);
+            StoreValueInMemory(MAR, buffer.RM, bytes[command]);
             break;
         default: break;
     }
@@ -536,7 +557,7 @@ void PipelinedSimulator::MemoryAccess() {
             PC = PC;
             break;
         case 0b1:
-            PC = RZ;
+            PC = buffer.RZ;
             break;
         default: break;
     }
@@ -550,46 +571,48 @@ void PipelinedSimulator::MemoryAccess() {
         default: break;
     }
 
-    // control.IncrementClock();
-    // cout << "Memory Access Completed" << endl;
-    memory_instruction.stage = control.current_instruction.stage = WRITEBACK;
-    control.UpdateWritebackSignals();
-}
-
-void PipelinedSimulator::Writeback() {
-    Instruction writeback_instruction = instructions[4];
-    if (reached_end && isNullInstruction(writeback_instruction)) return;
-
     switch (control.MuxY) {
         case 0b1:
-            RY = RZ;
+            inter_stage.RY = buffer.RZ;
             break;
         case 0b10:
-            RY = MDR;
+            inter_stage.RY = MDR;
             break;
         case 0b11:
-            RY = PC_temp + INSTRUCTION_SIZE;
+            inter_stage.RY = PC_temp + INSTRUCTION_SIZE;
             break;
         default: break;
     }
 
-    if (control.MuxY) {
-        register_file[stoi(writeback_instruction.rd, nullptr, 2)] = RY;
+    Reset_x0();
+
+    // control.IncrementClock();
+    // cout << "Memory Access Completed" << endl;
+    // memory_instruction.stage = control.current_instruction.stage = WRITEBACK;
+    // control.UpdateWritebackSignals();
+}
+
+void PipelinedSimulator::Writeback() {
+    Instruction writeback_instruction = instructions[4];
+    // if (reached_end && isNullInstruction(writeback_instruction)) return;
+
+    if (control.EnableRegisterFile) {
+        register_file[stoi(writeback_instruction.rd, nullptr, 2)] = buffer.RY;
     }
 
     // control.IncrementClock();
     // cout << "Writeback Completed" << endl;
-    writeback_instruction.stage = control.current_instruction.stage = COMMITTED;
-    register_file[0] = 0x0;
+    // writeback_instruction.stage = control.current_instruction.stage = COMMITTED;
+    Reset_x0();
     // control.UpdateFetchSignals();
 }
 
 void PipelinedSimulator::RegisterState() {
-    cout << "RA: " << hex << RA << endl;
-    cout << "RB: " << RB << endl;
-    cout << "RM: " << RM << endl;
-    cout << "RY: " << RY << endl;
-    cout << "RZ: " << RZ << endl;
+    cout << "RA: " << hex << inter_stage.RA << endl;
+    cout << "RB: " << inter_stage.RB << endl;
+    cout << "RM: " << inter_stage.RM << endl;
+    cout << "RY: " << inter_stage.RY << endl;
+    cout << "RZ: " << inter_stage.RZ << endl;
     cout << "MAR: " << MAR << endl;
     cout << "MDR: " << MDR << endl;
     cout << "IR: " << IR << endl;
