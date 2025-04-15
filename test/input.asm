@@ -1,17 +1,17 @@
 .data
-n: .byte 5
+n: .byte 5, 10, 20
 
 .text
 main:
     # Storing n the value for which we have to calculate the factorial in x11
-    lui x11 0x10000
-    lb x11 0(x11)
+    lui x11, 0x10000
+    lb x11, 0(x11)
 
     # Initializing the value of x17 to display -1 if error was found
-    addi x17 x0 -1
+    addi x17, x0, -1
 
-    jal x1 recursive_factorial
-    jal x0 exit
+    jal x1, recursive_factorial
+    jal x0, exit
 
 # This is a wrapper function for run_factorial to initialize necessary variables to avoid re-assigning constant variables
 # This function also conducts initial checks to avoid infinite recursion

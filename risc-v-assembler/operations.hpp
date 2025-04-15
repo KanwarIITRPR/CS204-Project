@@ -1,7 +1,7 @@
-#ifndef OPERATIONS
-#define OPERATIONS
+#ifndef OPERATIONS_H
+#define OPERATIONS_H
 
-#include "utils.cpp"
+#include "utils.hpp"
 
 enum class Format {
     R,
@@ -123,8 +123,8 @@ const map<string, uint8_t> directive_size = {
     {".asciiz", 1}
 };
 
-bool IsValidOperation(string operation, bool log_error);
-bool IsValidDirective(string directive, bool log_error);
+bool IsValidOperation(string operation, bool log_error = false);
+bool IsValidDirective(string directive, bool log_error = false);
 bool IsLoadOperation(string operation);
 
 Format GetFormat(string operation);

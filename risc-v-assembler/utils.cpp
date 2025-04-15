@@ -1,10 +1,7 @@
-#ifndef UTILS
-#define UTILS
-
-#include <bits/stdc++.h>
-using namespace std;
+#include "utils.hpp"
 
 string error_file = "./logs/errors.txt";
+string std_input_file = "./test/input.asm";
 ofstream error_stream;
 
 map<string, char> hex_dict = {
@@ -38,7 +35,7 @@ long long GetDecimalNumber(const string &s) {
     return stoll(s);
 }
 
-string DecimalToBinary(int32_t decimal, int bits = 32) {
+string DecimalToBinary(int32_t decimal, int bits) {
     if (decimal >= 0) return bitset<32>(decimal).to_string().substr(32 - bits);
     else return bitset<32>(static_cast<uint32_t>(decimal)).to_string().substr(32 - bits);
 }
@@ -56,7 +53,7 @@ int BinaryToDecimal(const string& binary) {
     return result;
 }
 
-string extendBits(const string& binary, int targetBits = 32) {
+string extendBits(const string& binary, int targetBits) {
     if (binary.length() >= targetBits) return binary;
     char signBit = binary[0];
     
@@ -98,5 +95,3 @@ void InitializeFileStreams() {
 void CloseFileStreams() {
     error_stream.close();
 }
-
-#endif

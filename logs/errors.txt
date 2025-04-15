@@ -1,1 +1,1 @@
-Invalid operation: adn
+Found ',' directly after operation/directive use: "lui, x11, 0x10000"

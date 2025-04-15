@@ -1,7 +1,6 @@
-#ifndef INSTRUCTIONS
-#define INSTRUCTIONS
+#ifndef INSTRUCTIONS_H
+#define INSTRUCTIONS_H
 
-#include "utils.cpp"
 #include "operations.hpp"
 
 #define NULL_INSTRUCTION Instruction()

@@ -1,12 +1,12 @@
 #include "operations.hpp"
 
-bool IsValidOperation(string operation, bool log_error = false) {
+bool IsValidOperation(string operation, bool log_error) {
     bool is_valid = opcode.find(operation) != opcode.end();
     if (log_error && !is_valid) error_stream << "Invalid operation: " << operation << "\n";
 }
 
-bool IsValidDirective(string directive, bool log_error = false) {
-    bool is_valid = opcode.find(directive) != opcode.end();
+bool IsValidDirective(string directive, bool log_error) {
+    bool is_valid = directive_size.find(directive) != directive_size.end();
     if (log_error && !is_valid) error_stream << "Invalid directive: " << directive << "\n";
 }
 
@@ -61,10 +61,3 @@ bool IsLoadOperation(string operation) {
     if (!IsValidOperation(operation)) return false;
     return opcode.find(operation) -> second == 0b0000011;
 }
-
-// int main() {
-//     InitializeFileStreams();
-//     cout << GetFormatName(GetFormat("add")) << endl;
-//     cout << GetFormatName(GetFormat("adn")) << endl;
-//     CloseFileStreams();
-// }
