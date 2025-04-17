@@ -4,6 +4,7 @@
 #include <math.h>
 #include "operations.hpp"
 #include "lexer.hpp"
+// #include "simulator.hpp"
 
 #define TEXT_ADDRESS 0x00000000
 #define DATA_ADDRESS 0x10000000
@@ -81,6 +82,8 @@ class Assembler {
             fout.open(machine_file);
             if (!fout.is_open()) { error_stream << "Couldn't open output file: " << assembly_file << "\n"; return; }
         };
+
+        // friend class PipelinedSimulator;
 };
 
 #endif

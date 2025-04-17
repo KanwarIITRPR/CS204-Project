@@ -154,6 +154,7 @@ bool IsValidDirective(string directive, bool log_error = false);
 bool IsLoadOperation(string operation);
 
 Format GetFormat(string operation);
+Format GetFormat(uint8_t operation_code);
 string GetFormatName(Format format);
 
 bool HasOffsetRegisterCoupling(string operation);

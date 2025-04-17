@@ -4,6 +4,8 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+#define BYTE_SIZE 8
+
 extern string error_file;
 extern string std_input_file;
 extern string std_output_file;

@@ -1,35 +1,4 @@
-#include "utils.cpp"
-#include "main.cpp"
-#include "simulator.hpp"
-
-class ControlCircuit {
-    public:
-        void UpdateControlSignals();
-        void IncrementClock() { clock += 1; }
-        void UpdateDecodeSignals();
-        void UpdateExecuteSignals();
-        void UpdateMemorySignals();
-        void UpdateWritebackSignals();
-
-        uint32_t CyclesExecuted() { return clock; }
-
-        uint8_t MuxA = 0;
-        uint8_t MuxB = 0;
-        uint8_t ALU = 0;
-        uint8_t MuxZ = 0;
-        uint8_t MuxY = 0;
-        uint8_t MuxMA = 0;
-        uint8_t MuxMD = 0;
-        uint8_t DemuxMD = 0;
-        uint8_t MuxINC = 0;
-        uint8_t MuxPC = 0;
-        uint8_t EnableRegisterFile = 1;
-
-        PipelinedSimulator simulator;
-
-    private:
-        uint32_t clock = 0;
-};
+#include "control.hpp"
 
 void ControlCircuit::UpdateControlSignals() {
     UpdateDecodeSignals();
@@ -39,17 +8,16 @@ void ControlCircuit::UpdateControlSignals() {
 }
 
 void ControlCircuit::UpdateDecodeSignals() {
-    
     string command = simulator.instructions[1].literal.substr(0, simulator.instructions[1].literal.find(" "));
-    if (simulator.instructions[1].format == R || simulator.instructions[1].format == I || simulator.instructions[1].format == S || simulator.instructions[1].format == SB) MuxA = 0b1; // Register Value
+    if (simulator.instructions[1].format == Format::R || simulator.instructions[1].format == Format::I || simulator.instructions[1].format == Format::S || simulator.instructions[1].format == Format::SB) MuxA = 0b1; // Register Value
     else if (command == "auipc") MuxA = 0b10; // PC
     else if (command == "lui") MuxA = 0b11; // Interchange with immediate
     else MuxA = 0b0;
     
-    if (simulator.instructions[1].format == R || simulator.instructions[1].format == SB) MuxB = 0b1; // Register Value
+    if (simulator.instructions[1].format == Format::R || simulator.instructions[1].format == Format::SB) MuxB = 0b1; // Register Value
     else if (command == "lui") MuxB = 0b100; // 12 ("Interchanged")
-    else if (simulator.instructions[1].format == U || simulator.instructions[1].format == I) MuxB = 0b10; // Immediate
-    else if (simulator.instructions[1].format == S) MuxB = 0b11; // Immediate in RB and Register Value in RM
+    else if (simulator.instructions[1].format == Format::U || simulator.instructions[1].format == Format::I) MuxB = 0b10; // Immediate
+    else if (simulator.instructions[1].format == Format::S) MuxB = 0b11; // Immediate in RB and Register Value in RM
     else MuxB = 0b0;
 }
 
@@ -73,22 +41,22 @@ void ControlCircuit::UpdateExecuteSignals() {
     else if (command == "blt") ALU = 0b1111;
     else if (command == "bge") ALU = 0b10000;
     else if (command == "auipc") ALU = 0b10001;
-    else if (simulator.instructions[2].format == I || simulator.instructions[2].format == S) ALU = 0b1;
+    else if (simulator.instructions[2].format == Format::I || simulator.instructions[2].format == Format::S) ALU = 0b1;
     else ALU = 0b0;
 }
 
 void ControlCircuit::UpdateMemorySignals() {
     string command = simulator.instructions[3].literal.substr(0, simulator.instructions[3].literal.find(" "));
 
-    if (simulator.instructions[3].stage == FETCH) MuxMA = 0b1;
-    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || simulator.instructions[3].format == S) MuxMA = 0b10;
+    if (simulator.instructions[3].stage == Stage::FETCH) MuxMA = 0b1;
+    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || simulator.instructions[3].format == Format::S) MuxMA = 0b10;
     else MuxMA = 0b0;
 
-    if (simulator.instructions[3].stage == FETCH || command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxMD = 0b1;
-    else if (simulator.instructions[3].format == S) MuxMD = 0b10;
+    if (simulator.instructions[3].stage == Stage::FETCH || command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxMD = 0b1;
+    else if (simulator.instructions[3].format == Format::S) MuxMD = 0b10;
     else MuxMD = 0b0;
     
-    if (simulator.instructions[3].stage == FETCH) DemuxMD = 0b1;
+    if (simulator.instructions[3].stage == Stage::FETCH) DemuxMD = 0b1;
     else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") DemuxMD = 0b10;
     else DemuxMD = 0b0;
 
@@ -99,19 +67,19 @@ void ControlCircuit::UpdateMemorySignals() {
     else if (command == "beq" || command == "bne" || command == "blt" || command == "bge") MuxINC = MuxINC; // Already calculated
     else MuxINC = 0b0; // Select 4
 
-    if (simulator.instructions[3].format == R) MuxY = 0b1; // Select RZ
+    if (simulator.instructions[3].format == Format::R) MuxY = 0b1; // Select RZ
     else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxY = 0b10; // Select MDR
-    else if (command == "jalr" || simulator.instructions[3].format == UJ) MuxY = 0b11; // Select Return Address
-    else if (simulator.instructions[3].format == I || simulator.instructions[3].format == U) MuxY = 0b1; // Select RZ
+    else if (command == "jalr" || simulator.instructions[3].format == Format::UJ) MuxY = 0b11; // Select Return Address
+    else if (simulator.instructions[3].format == Format::I || simulator.instructions[3].format == Format::U) MuxY = 0b1; // Select RZ
     else MuxY = 0b0;
 }
 
 void ControlCircuit::UpdateWritebackSignals() {
     string command = simulator.instructions[4].literal.substr(0, simulator.instructions[4].literal.find(" "));
     
-    if (simulator.instructions[4].format == R) EnableRegisterFile = 0b1; // Select RZ
+    if (simulator.instructions[4].format == Format::R) EnableRegisterFile = 0b1; // Select RZ
     else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") EnableRegisterFile = 0b10; // Select MDR
-    else if (command == "jalr" || simulator.instructions[4].format == UJ) EnableRegisterFile = 0b11; // Select Return Address
-    else if (simulator.instructions[4].format == I || simulator.instructions[4].format == U) EnableRegisterFile = 0b1; // Select RZ
+    else if (command == "jalr" || simulator.instructions[4].format == Format::UJ) EnableRegisterFile = 0b11; // Select Return Address
+    else if (simulator.instructions[4].format == Format::I || simulator.instructions[4].format == Format::U) EnableRegisterFile = 0b1; // Select RZ
     else MuxY = 0b0;
 }

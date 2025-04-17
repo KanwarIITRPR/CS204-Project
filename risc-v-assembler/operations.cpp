@@ -12,7 +12,11 @@ bool IsValidDirective(string directive, bool log_error) {
 
 Format GetFormat(string operation) {
     auto opcode_pair = opcode.find(operation);
-    switch (opcode_pair -> second) {
+    return GetFormat(opcode_pair -> second);
+}
+
+Format GetFormat(uint8_t operation_code) {
+    switch (operation_code) {
         case 0b0110011:
             return Format::R;
         case 0b0010011:
@@ -34,7 +38,7 @@ Format GetFormat(string operation) {
         default:
             return Format::INVALID;
     }
-};
+}
 
 string GetFormatName(Format format) {
     switch (format) {
