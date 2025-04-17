@@ -2,6 +2,7 @@
 
 string error_file = "./logs/errors.txt";
 string std_input_file = "./test/input.asm";
+string std_output_file = "./test/output.mc";
 ofstream error_stream;
 
 map<string, char> hex_dict = {
@@ -23,18 +24,34 @@ map<string, char> hex_dict = {
     {"1111", 'F'}
 };
 
-long long GetDecimalNumber(const string &s) {
-    if (s.substr(0, 2) == "0x") return stoll(s, nullptr, 16);
-    if (s.substr(0, 2) == "0b") return stoll(s, nullptr, 2);
-    for (char digit : s) {
-        if (!isdigit(digit) && digit != '-' && digit != '+') {
-            cerr << "Invalid Number";
-            return -1;
-        }
+long long GetDecimalNumber(string s) {
+    if (s.empty()) {
+        error_stream << "Invalid Number (empty string)" << endl;
+        return -1;
     }
-    return stoll(s);
-}
 
+    try {
+        if (s.substr(0, 2) == "0x") return stoll(s, nullptr, 16);
+        if (s.substr(0, 2) == "0b") return stoll(s, nullptr, 2);
+        
+        size_t start = 0;
+        if (s[0] == '-' || s[0] == '+') start = 1;
+        for (size_t i = start; i < s.size(); ++i) {
+            if (!isdigit(s[i])) {
+                error_stream << "Invalid Number (non-digit character): " << s << endl;
+                return -1;
+            }
+        }
+        
+        return stoll(s);
+    } catch (const invalid_argument&) {
+        error_stream << "Invalid Number (malformed string): " << s << endl;
+        return -1;
+    } catch (const out_of_range&) {
+        error_stream << "Invalid Number (value out of range): " << s << endl;
+        return -1;
+    }
+}
 string DecimalToBinary(int32_t decimal, int bits) {
     if (decimal >= 0) return bitset<32>(decimal).to_string().substr(32 - bits);
     else return bitset<32>(static_cast<uint32_t>(decimal)).to_string().substr(32 - bits);

@@ -8,19 +8,19 @@ string Lexer::TrimString(string input_string) {
 }
 
 bool Lexer::IsValidLabel(string label, bool log_error) {
-    if (label.find_first_of(" \n\r\t") != string::npos) {
+    if (label.find_first_of(", \n\r\t") != string::npos) {
         if (log_error) error_stream << "Invalid label name: " << label << "\n";
         return false;
     } else return true;
 }
 
-vector<string> Lexer::Tokenize(bool remove_labels = true, bool remove_comments = true) {
-    string current_line;
-    getline(fin, current_line);
-
+vector<string> Lexer::Tokenize(string current_line, bool remove_labels) {
     // Removing comments
     size_t comment_start = current_line.find("#");
-    if (remove_comments && comment_start != string::npos) current_line = current_line.substr(0, comment_start);
+    if (comment_start != string::npos) current_line = current_line.substr(0, comment_start);
+    
+    // Trimming the string
+    current_line = TrimString(current_line);
     
     // Removing labels
     size_t label_end = current_line.find(":");
@@ -29,10 +29,10 @@ vector<string> Lexer::Tokenize(bool remove_labels = true, bool remove_comments =
         if (remove_labels) current_line = current_line.substr(label_end + 1, current_line.length() - label_end - 1);
     }
     
-    // Trimming the string before replacing commas so as to avoid excess commas present
+    // Trimming the string
     current_line = TrimString(current_line);
     if (current_line.empty()) return {};
-
+    
     // Checking for no commas between (operation and operands) & (directives and data)
     size_t first_separator_index = current_line.find_first_of(" \n\r\t");
     if (first_separator_index == string::npos) return {current_line};
@@ -44,9 +44,6 @@ vector<string> Lexer::Tokenize(bool remove_labels = true, bool remove_comments =
         return {};
     }
 
-    // Checking if provided operation/directive is valid
-    if (!IsValidOperation(operation, false) && !IsValidDirective(operation, false)) return {};
-
     // Replacing all commas with spaces to unify separator
     replace(operands.begin(), operands.end(), ',', ' ');
 
@@ -57,4 +54,13 @@ vector<string> Lexer::Tokenize(bool remove_labels = true, bool remove_comments =
     while (argument_stream >> current_token) tokens.push_back(current_token);
 
     return tokens;
+}
+
+bool Lexer::GetNextInstruction(string &current_line) {
+    return getline(fin, current_line) ? true : false;
+}
+
+void Lexer::ResetInputFile() {
+    fin.clear();
+    fin.seekg(0);
 }

@@ -12,8 +12,6 @@ bool IsValidDirective(string directive, bool log_error) {
 
 Format GetFormat(string operation) {
     auto opcode_pair = opcode.find(operation);
-    if (!IsValidOperation(operation, true)) return Format::INVALID;
-
     switch (opcode_pair -> second) {
         case 0b0110011:
             return Format::R;
@@ -58,6 +56,28 @@ string GetFormatName(Format format) {
 }
 
 bool IsLoadOperation(string operation) {
-    if (!IsValidOperation(operation)) return false;
+    // if (!IsValidOperation(operation)) return false;
     return opcode.find(operation) -> second == 0b0000011;
+}
+
+bool HasOffsetRegisterCoupling(string operation) {
+    switch (opcode.find(operation) -> second) {
+        case 0b0000011:
+            return true;
+        case 0b0100011:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool HasLabelOperand(string operation) {
+    switch (GetFormat(operation)) {
+        case Format::SB:
+            return true;
+        case Format::UJ:
+            return true;
+        default:
+            return false;
+    }
 }

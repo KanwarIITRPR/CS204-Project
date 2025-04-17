@@ -6,11 +6,12 @@ using namespace std;
 
 extern string error_file;
 extern string std_input_file;
+extern string std_output_file;
 extern ofstream error_stream;
 
 extern map<string, char> hex_dict;
 
-long long GetDecimalNumber(const string &s);
+long long GetDecimalNumber(string s);
 string DecimalToBinary(int32_t decimal, int bits = 32);
 int BinaryToDecimal(const string& binary);
 string extendBits(const string& binary, int targetBits = 32);

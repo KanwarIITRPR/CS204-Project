@@ -31,8 +31,8 @@ run_factorial:
 
     # Checking for errors and base case
     addi x18 x0 1
-    blt x11 x0 logical_error
-    ble x11 x18 base_case
+    blt x11 x0 exit
+    bge x18 x11 base_case
     
     # Performing Recursion
     addi x11 x11 -1

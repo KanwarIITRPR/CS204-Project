@@ -13,6 +13,33 @@ enum class Format {
     INVALID
 };
 
+#define OPCODE_LENGTH 7
+#define FUNCT3_LENGTH 3
+#define FUNCT7_LENGTH 7
+#define REGISTER_LENGTH 5
+
+#define S_LOWER_IMMEDIATE_LENGTH 5
+#define SB_LOWER_IMMEDIATE_LENGTH 5
+
+// Allowed size of immediate values
+const map<Format, uint8_t> immediate_bits {
+    {Format::I, 12},
+    {Format::S, 12},
+    {Format::SB, 12},
+    {Format::U, 20},
+    {Format::UJ, 20}
+};
+
+// Number of parameters for a given operation
+const map<Format, uint8_t> argument_size {
+    {Format::R, 4},
+    {Format::I, 4},
+    {Format::S, 4},
+    {Format::SB, 4},
+    {Format::U, 3},
+    {Format::UJ, 3}
+};
+
 // 7-bit operation code
 const map<string, uint8_t> opcode = {
     // R - Format
@@ -22,7 +49,7 @@ const map<string, uint8_t> opcode = {
     {"div", 0b0110011},
     {"rem", 0b0110011},
     {"and", 0b0110011},
-    {"or",  0b0110011},
+    {"or", 0b0110011},
     {"xor", 0b0110011},
     {"sll", 0b0110011},
     {"slt", 0b0110011},
@@ -32,11 +59,11 @@ const map<string, uint8_t> opcode = {
     // I - Format
     {"addi", 0b0010011},
     {"andi", 0b0010011},
-    {"ori",  0b0010011},
+    {"ori", 0b0010011},
     {"xori", 0b0010011},
-    {"lb",   0b0000011},
-    {"lh",   0b0000011},
-    {"lw",   0b0000011},
+    {"lb", 0b0000011},
+    {"lh", 0b0000011},
+    {"lw", 0b0000011},
     {"jalr", 0b1100111},
 
     // S - Format
@@ -51,7 +78,7 @@ const map<string, uint8_t> opcode = {
     {"bge", 0b1100011},
 
     // U - Format
-    {"lui",   0b0110111},
+    {"lui", 0b0110111},
     {"auipc", 0b0010111},
 
     // UJ - Format
@@ -67,7 +94,7 @@ const map<string, uint8_t> funct3 = {
     {"div", 0b100},
     {"rem", 0b110},
     {"and", 0b111},
-    {"or",  0b110},
+    {"or", 0b110},
     {"xor", 0b100},
     {"sll", 0b001},
     {"slt", 0b010},
@@ -79,9 +106,9 @@ const map<string, uint8_t> funct3 = {
     {"andi", 0b111},
     {"ori",  0b110},
     {"xori", 0b100},
-    {"lb",   0b000},
-    {"lh",   0b001},
-    {"lw",   0b010},
+    {"lb", 0b000},
+    {"lh", 0b001},
+    {"lw", 0b010},
     {"jalr", 0b000},
 
     // S - Format
@@ -105,7 +132,7 @@ const map<string, uint8_t> funct7 = {
     {"div", 0b0000001},
     {"rem", 0b0000001},
     {"and", 0b0000000},
-    {"or",  0b0000000},
+    {"or", 0b0000000},
     {"xor", 0b0000000},
     {"sll", 0b0000000},
     {"slt", 0b0000000},
@@ -114,12 +141,11 @@ const map<string, uint8_t> funct7 = {
 };
 
 const map<string, uint8_t> directive_size = {
-    {".text",   0},
-    {".data",   0},
-    {".byte",   1},
-    {".half",   2},
-    {".word",   4},
-    {".dword",  8},
+    {".text", 0},
+    {".data", 0},
+    {".byte", 1},
+    {".half", 2},
+    {".word", 4},
     {".asciiz", 1}
 };
 
@@ -129,5 +155,8 @@ bool IsLoadOperation(string operation);
 
 Format GetFormat(string operation);
 string GetFormatName(Format format);
+
+bool HasOffsetRegisterCoupling(string operation);
+bool HasLabelOperand(string operation);
 
 #endif
