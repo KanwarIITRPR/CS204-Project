@@ -29,6 +29,8 @@ class ControlCircuit {
     private:
         PipelinedSimulator simulator;
         uint32_t clock = 0;
+
+    friend class PipelinedSimulator;
 };
 
 #endif

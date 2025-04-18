@@ -194,11 +194,11 @@ uint32_t Assembler::ExtractData(vector<string> tokens, uint32_t current_address)
 
 uint32_t Assembler::ExtractText(vector<string> tokens, uint32_t current_address) {
     string operation = tokens[0];
-    string current_instruction = operation + " ";
-    for (size_t i = 1; i < tokens.size(); i++) current_instruction += tokens[i] + ((i == tokens.size() - 1) ? "" : ", ");
-    
     if (HasLabelOperand(operation)) tokens = CorrectLabels(tokens, current_address);
     else if (HasOffsetRegisterCoupling(operation)) tokens = TransformOffsetRegisterFormat(tokens);
+    
+    string current_instruction = operation + " ";
+    for (size_t i = 1; i < tokens.size(); i++) current_instruction += tokens[i] + ((i == tokens.size() - 1) ? "" : ", ");
     
     if (!HasCorrectOperandsFormat(tokens)) {
         error_stream << "Incorrect format of instruction: " << current_instruction << endl;
@@ -368,13 +368,4 @@ void Assembler::ShowOutput() {
     }
     fout << TEXT_END << endl;
 
-}
-
-int main() {
-    InitializeFileStreams();
-
-    Assembler a(std_input_file, std_output_file);
-    a.Assemble();
-
-    CloseFileStreams();
 }

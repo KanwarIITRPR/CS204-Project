@@ -23,14 +23,15 @@ struct InterStageRegisters {
 };
 
 struct Instruction {
-    uint32_t machine_code;
-    uint8_t opcode, rd, rs1, rs2, immediate, funct3, funct7;
+    uint32_t machine_code, immediate;
+    uint8_t opcode, rd, rs1, rs2, funct3, funct7;
     string literal;
     Format format;
     Stage stage;
 };
 
 #define NULL_INSTRUCTION Instruction()
+bool IsNullInstruction(Instruction instruction);
 
 class PipelinedSimulator {
     private:
@@ -43,22 +44,20 @@ class PipelinedSimulator {
         // map<uint32_t, uint8_t> data_map;
         // map<uint32_t, Instruction> text_map;
 
-        // Set common input stream commands
-        ifstream fin;
-
+        
         InterStageRegisters inter_stage;
         InterStageRegisters buffer;
         
         // uint32_t MAR = 0x00000000;
         // uint32_t MDR = 0x00000000;
         uint32_t IR = 0x00000000;
-        uint32_t PC = 0x00000000;
-        uint32_t PC_temp = 0x00000000;
+        // uint32_t PC = 0x00000000;
+        // uint32_t PC_temp = 0x00000000;
 
         bool reached_end = false;
         bool started = false;
         bool finished = false;
-
+        
         void Fetch();
         void Decode();
         void Execute();
@@ -72,21 +71,18 @@ class PipelinedSimulator {
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
     
-    public:
+        public:
+        ifstream fin;
         void Run(char** argV, bool each_stage);
         void Step(char** argV, bool each_stage);
         void RunInstruction(bool each_stage);
-
-        void ExtractInstruction(string machine_line);
+        
+        Instruction ExtractInstruction(string machine_code);
         uint32_t GenerateMask(uint8_t length);
         
         void InitializeRegisters();
-        void InitialParse(string mc_file);
+        void InitialParse();
         void Reset_x0();
-
-        Instruction GetInstructionFromMemory(uint32_t location);
-        uint32_t GetValueFromMemory(uint32_t location, int bytes);
-        void StoreValueInMemory(uint32_t location, uint32_t data, int bytes);
 
         void RegisterState();
 
@@ -109,7 +105,7 @@ class PipelinedSimulator {
             fin.open(machine_file);
 
             InitializeRegisters();
-            InitialParse(argV[2]);
+            InitialParse();
             for (size_t i = 0; i < PIPELINE_STAGES; i++) instructions[i] = NULL_INSTRUCTION;
 
             control = ControlCircuit();
