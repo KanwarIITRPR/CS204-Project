@@ -1,4 +1,4 @@
-#include "IAG.hpp"
+#include "components.hpp"
 
 void IAG::UpdateBuffer() { buffer_PC = PC; }
 

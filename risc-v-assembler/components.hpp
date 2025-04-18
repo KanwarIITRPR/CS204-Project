@@ -1,10 +1,7 @@
-#ifndef SIMULATOR_H
-#define SIMULATOR_H
+#ifndef COMPONENTS_H
+#define COMPONENTS_H
 
 #include "assembler.hpp"
-// #include "control.hpp"
-// #include "memory.hpp"
-// #include "IAG.hpp"
 
 enum class Stage {
     QUEUED,
@@ -14,12 +11,6 @@ enum class Stage {
     MEMORY_ACCESS,
     WRITEBACK,
     COMMITTED
-};
-
-struct InterStageRegisters {
-    uint32_t RA, RB;
-    uint32_t RM;
-    uint32_t RY, RZ;
 };
 
 struct Instruction {
@@ -33,9 +24,86 @@ struct Instruction {
 #define NULL_INSTRUCTION Instruction()
 bool IsNullInstruction(Instruction instruction);
 
-class ControlCircuit;
-class ProcessorMemoryInterface;
-class IAG;
+struct InterStageRegisters {
+    uint32_t RA, RB;
+    uint32_t RM;
+    uint32_t RY, RZ;
+};
+
+class Debug {
+    public:
+        static int debug_count;
+        static bool debug;
+        static void log(string message) {
+            if (!debug) return;
+            debug_count++;
+            cout << dec << "Debug " << debug_count << " ~ " << message << endl;
+        }
+
+        static void set(int bit) { debug = (bool) bit; }
+};
+
+struct MemoryRegisters { uint32_t MAR, MDR; };
+
+class IAG {
+    private:
+        
+    public:
+        const int INSTRUCTION_SIZE = 4;
+        uint32_t PC, buffer_PC;
+        void UpdateBuffer();
+
+        void UpdatePC();
+};
+
+class PipelinedSimulator;
+class ControlCircuit {
+    public:
+        void IncrementClock() { clock += 1; }
+        uint32_t CyclesExecuted() { return clock; }
+
+        void UpdateControlSignals();
+        void UpdateDecodeSignals();
+        void UpdateExecuteSignals();
+        void UpdateMemorySignals();
+        void UpdateWritebackSignals();
+
+        uint8_t MuxA = 0;
+        uint8_t MuxB = 0;
+        uint8_t ALU = 0;
+        uint8_t MuxZ = 0;
+        uint8_t MuxY = 0;
+        uint8_t MuxMA = 0;
+        uint8_t MuxMD = 0;
+        uint8_t DemuxMD = 0;
+        uint8_t MuxINC = 0;
+        uint8_t MuxPC = 0;
+        uint8_t EnableRegisterFile = 1;
+        
+    private:
+        PipelinedSimulator* simulator;
+        uint32_t clock = 0;
+
+    friend class PipelinedSimulator;
+};
+
+class ProcessorMemoryInterface {
+    public:
+        // Used for load/store instructions
+        Instruction GetInstruction();
+        void GetDataValue(int bytes = 0);
+        void StoreDataValue(int bytes = 0);
+
+        // Used for initial parsing
+        void AddInstruction(uint32_t location, Instruction instruction);
+        void AddData(uint32_t location, uint32_t data, int bytes = 0);
+
+        map<uint32_t, uint8_t> data_map;
+        map<uint32_t, Instruction> text_map;
+
+        MemoryRegisters instruction_memory;
+        MemoryRegisters data_memory;
+};
 
 class PipelinedSimulator {
     private:
@@ -71,7 +139,8 @@ class PipelinedSimulator {
         bool hasPipeline = true;
         bool hasDataForwarding = true;
         bool printRegisterFile = true;
-        bool printBufferRegisters = true;
+        bool printPipelineRegisters = true;
+        bool printInstructions = true;
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
     
@@ -87,9 +156,12 @@ class PipelinedSimulator {
         void InitializeRegisters();
         void InitialParse();
         void Reset_x0();
+        
         void PrintRegisterFile();
+        void PrintPipelineRegisters();
+        void PrintInstructions();
 
-        void RegisterState();
+        void UpdateBufferRegisters();
 
         void SetKnob1(bool set_value);
         void SetKnob2(bool set_value);
@@ -97,6 +169,7 @@ class PipelinedSimulator {
         void SetKnob4(bool set_value);
         void SetKnob5(int instruction_index);
         void SetKnob6(bool set_value);
+        void SetKnob7(bool set_value);
 
         Assembler assembler;
         ControlCircuit control;
@@ -115,13 +188,6 @@ class PipelinedSimulator {
 
             control.simulator = this;
         };
-
-        // Test Instructions
-        void InstructionsInProcess() {
-            cout << "------ Instructions ------" << endl;
-            for (size_t i = 0; i < PIPELINE_STAGES; i++) cout << stage_name[i][0] << ": " << instructions[i].literal << endl;
-            cout << endl;
-        }
 
         friend class ControlCircuit;
 };

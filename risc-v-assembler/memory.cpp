@@ -1,11 +1,14 @@
-#include "memory.hpp"
+#include "components.hpp"
 
 Instruction ProcessorMemoryInterface::GetInstruction() {
     if (instruction_memory.MAR >= DATA_ADDRESS) {
         error_stream << "Can't access instructions from data memory: " << instruction_memory.MAR << endl;
-        return;
+        return NULL_INSTRUCTION;
     }
-    return text_map[instruction_memory.MAR];
+    
+    Instruction instruction = text_map[instruction_memory.MAR];
+    instruction_memory.MDR = instruction.machine_code;
+    return instruction;
 }
 
 void ProcessorMemoryInterface::GetDataValue(int bytes) {
