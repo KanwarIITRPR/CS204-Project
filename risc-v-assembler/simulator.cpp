@@ -214,20 +214,28 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
         instructions[0].stage = Stage::DECODE;
         started = true;
     } else finished = true;
-
-    UpdateBufferRegisters();
     
     control.IncrementClock();
     if (printInstructions) PrintInstructions();
-    if (printPipelineRegisters) PrintPipelineRegisters();
+    if (specified_instruction) PrintPipelineRegisters();
+    else if (printPipelineRegisters) PrintPipelineRegisters();
     if (printRegisterFile) PrintRegisterFile();
+    
+    UpdateBufferRegisters();
 }
 
 void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
 void PipelinedSimulator::SetKnob2(bool set_value) { hasDataForwarding = set_value; }
 void PipelinedSimulator::SetKnob3(bool set_value) { printRegisterFile = set_value; }
 void PipelinedSimulator::SetKnob4(bool set_value) { printPipelineRegisters = set_value; }
-void PipelinedSimulator::SetKnob5(int instruction_index) { SetKnob4(true); specified_instruction = instruction_index; }
+void PipelinedSimulator::SetKnob5(uint32_t instruction_index) {
+    if (!printPipelineRegisters) return;
+    if (!instruction_index) {
+        if (previouslyPrintingPipelineRegisters) SetKnob4(true);
+        else SetKnob4(false);
+    } else previouslyPrintingPipelineRegisters = printPipelineRegisters;
+    specified_instruction = instruction_index;
+}
 void PipelinedSimulator::SetKnob6(bool set_value) { hasPipeline = set_value; }
 void PipelinedSimulator::SetKnob7(bool set_value) { printInstructions = set_value; }
 
@@ -239,6 +247,14 @@ void PipelinedSimulator::UpdateBufferRegisters() {
     buffer.RM = inter_stage.RM;
     buffer.RY = inter_stage.RY;
     buffer.RZ = inter_stage.RZ;
+}
+
+uint32_t PipelinedSimulator::GetInstructionNumber(uint32_t address) {
+    if (address >= DATA_ADDRESS) {
+        error_stream << "Instructions are not present in data memory: " << address << endl;
+        return 0;
+    }
+    return (address / iag.INSTRUCTION_SIZE) + 1;
 }
 
 void PipelinedSimulator::Fetch() {

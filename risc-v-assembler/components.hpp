@@ -141,6 +141,7 @@ class PipelinedSimulator {
         bool printRegisterFile = true;
         bool printPipelineRegisters = true;
         bool printInstructions = true;
+        bool previouslyPrintingPipelineRegisters = true;
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
     
@@ -160,6 +161,7 @@ class PipelinedSimulator {
         void PrintRegisterFile();
         void PrintPipelineRegisters();
         void PrintInstructions();
+        uint32_t GetInstructionNumber(uint32_t address);
 
         void UpdateBufferRegisters();
 
@@ -167,7 +169,7 @@ class PipelinedSimulator {
         void SetKnob2(bool set_value);
         void SetKnob3(bool set_value);
         void SetKnob4(bool set_value);
-        void SetKnob5(int instruction_index);
+        void SetKnob5(uint32_t instruction_index);
         void SetKnob6(bool set_value);
         void SetKnob7(bool set_value);
 
