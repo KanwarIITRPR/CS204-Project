@@ -14,7 +14,7 @@ enum class Stage {
 };
 
 struct Instruction {
-    uint32_t machine_code, immediate;
+    uint32_t machine_code, immediate, address;
     uint8_t opcode, rd, rs1, rs2, funct3, funct7;
     string literal;
     Format format;
@@ -111,7 +111,6 @@ class PipelinedSimulator {
         uint32_t register_file[REGISTER_COUNT];
 
         static const int PIPELINE_STAGES = 5;
-        string stage_name[PIPELINE_STAGES] = {"Fetch", "Decode", "Execute", "Memory Access", "Writeback"};
 
         // map<uint32_t, uint8_t> data_map;
         // map<uint32_t, Instruction> text_map;
@@ -153,6 +152,7 @@ class PipelinedSimulator {
         
         Instruction ExtractInstruction(string machine_code);
         uint32_t GenerateMask(uint8_t length);
+        string GetStageName(Stage stage);
         
         void InitializeRegisters();
         void InitialParse();
@@ -160,8 +160,11 @@ class PipelinedSimulator {
         
         void PrintRegisterFile();
         void PrintPipelineRegisters();
+        void PrintSpecifiedPipelineRegisters();
         void PrintInstructions();
+
         uint32_t GetInstructionNumber(uint32_t address);
+        Instruction GetSpecifiedInstruction();
 
         void UpdateBufferRegisters();
 

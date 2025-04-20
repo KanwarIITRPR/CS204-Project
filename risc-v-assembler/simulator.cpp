@@ -67,6 +67,7 @@ void PipelinedSimulator::InitialParse() {
         if (text_mode) {
             Instruction current_instruction = ExtractInstruction(stored_code);
             current_instruction.literal = command;
+            current_instruction.address = current_address;
             Debug::log("Extracted Instruction");
             memory.AddInstruction(current_address, current_instruction);
             Debug::log("Added Instruction to text map");
@@ -217,7 +218,7 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     
     control.IncrementClock();
     if (printInstructions) PrintInstructions();
-    if (specified_instruction) PrintPipelineRegisters();
+    if (specified_instruction) PrintSpecifiedPipelineRegisters();
     else if (printPipelineRegisters) PrintPipelineRegisters();
     if (printRegisterFile) PrintRegisterFile();
     
@@ -428,6 +429,26 @@ void PipelinedSimulator::Writeback() {
     Reset_x0();
 }
 
+Instruction PipelinedSimulator::GetSpecifiedInstruction() {
+    for (size_t i = 0; i < PIPELINE_STAGES; i++) {
+        if (specified_instruction == GetInstructionNumber(instructions[i].address)) return instructions[i];
+    }
+    return NULL_INSTRUCTION;
+}
+
+string PipelinedSimulator::GetStageName(Stage stage) {
+    switch (stage) {
+        case Stage::QUEUED: return "Queued";
+        case Stage::FETCH: return "Fetch";
+        case Stage::DECODE: return "Decode";
+        case Stage::EXECUTE: return "Execute";
+        case Stage::MEMORY_ACCESS: return "Memory Access";
+        case Stage::WRITEBACK: return "Writeback";
+        case Stage::COMMITTED: return "Committed";
+        default: return "";
+    }
+}
+
 void PipelinedSimulator::PrintRegisterFile() {
     uint8_t columns = 4, rows = REGISTER_COUNT / columns;
     cout << "\n------------------------------ Register File ------------------------------\n";
@@ -466,9 +487,49 @@ void PipelinedSimulator::PrintPipelineRegisters() {
     cout << "----------------------------------" << endl;
 }
 
+void PipelinedSimulator::PrintSpecifiedPipelineRegisters() {
+    Instruction highlighted_instruction = GetSpecifiedInstruction();
+    if (IsNullInstruction(highlighted_instruction)) return;
+
+    cout << "\n---- Specified Pipeline Registers ----\n";
+    cout << "Clock Cycles: " << control.CyclesExecuted() << endl;
+    cout << "Specified Instruction: " << highlighted_instruction.literal << endl;
+    cout << "Current Stage: " << GetStageName(highlighted_instruction.stage) << endl;
+
+    if (highlighted_instruction.stage == Stage::DECODE || highlighted_instruction.stage == Stage::EXECUTE || highlighted_instruction.stage == Stage::MEMORY_ACCESS || highlighted_instruction.stage == Stage::WRITEBACK) {
+        cout << "\nInter-Stage Registers\n" << hex;
+    }
+    if (highlighted_instruction.stage == Stage::DECODE) {
+        cout << "> RA: 0x" << setw(8) << setfill('0') << inter_stage.RA << endl;
+        cout << "> RB: 0x" << setw(8) << setfill('0') << inter_stage.RB << endl;
+    }
+    if (highlighted_instruction.stage == Stage::MEMORY_ACCESS) cout << "> RM: 0x" << setw(8) << setfill('0') << inter_stage.RM << endl;
+    if (highlighted_instruction.stage == Stage::EXECUTE) cout << "> RZ: 0x" << setw(8) << setfill('0') << inter_stage.RZ << endl;
+    if (highlighted_instruction.stage == Stage::WRITEBACK) cout << "> RY: 0x" << setw(8) << setfill('0') << inter_stage.RY << endl;
+    
+    if (highlighted_instruction.stage == Stage::FETCH || highlighted_instruction.stage == Stage::MEMORY_ACCESS) {
+        cout << "\nPMI Registers\n" << hex;
+    }
+    if (highlighted_instruction.stage == Stage::FETCH) {
+        cout << "> Instruction MAR: 0x" << setw(8) << setfill('0') << memory.instruction_memory.MAR << endl;
+        cout << "> Instruction MDR: 0x" << setw(8) << setfill('0') << memory.instruction_memory.MDR << endl;
+    }
+    if (highlighted_instruction.stage == Stage::MEMORY_ACCESS) {
+        cout << "> Data MAR: 0x" << setw(8) << setfill('0') << memory.data_memory.MAR << endl;
+        cout << "> Data MDR: 0x" << setw(8) << setfill('0') << memory.data_memory.MDR << endl;
+    }
+    
+    if (highlighted_instruction.stage == Stage::FETCH) {
+        cout << "\nIAG Registers\n" << hex;
+        cout << "> IR: 0x" << setw(8) << setfill('0') << IR << endl;
+        cout << "> PC: 0x" << setw(8) << setfill('0') << iag.PC << endl;
+    }
+    cout << "----------------------------------------" << endl;
+}
+
 void PipelinedSimulator::PrintInstructions() {
     cout << "\n------ Instructions ------" << endl;
-    for (size_t i = 0; i < PIPELINE_STAGES; i++) cout << stage_name[i][0] << ": " << instructions[i].literal << endl;
+    for (size_t i = 0; i < PIPELINE_STAGES; i++) cout << GetStageName((Stage)((int)Stage::FETCH + i))[0] << ": " << instructions[i].literal << endl;
     cout << "--------------------------" << endl;
 }
 
@@ -485,6 +546,7 @@ int main(int argC, char** argV) {
     int run_time = (argC > 1) ? GetDecimalNumber(argV[1]) : 2;
     if (argC > 2) (GetDecimalNumber(argV[2]) != 0) ? Debug::set(1) : Debug::set(0);
     PipelinedSimulator sim(std_input_file, std_output_file);
+    sim.SetKnob5(2);
 
     // sim.Run(argV, false);
     // sim.Step(argV, false);
