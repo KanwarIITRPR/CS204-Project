@@ -9,6 +9,7 @@ void ControlCircuit::UpdateControlSignals() {
 
 void ControlCircuit::UpdateDecodeSignals() {
     string command = simulator -> instructions[1].literal.substr(0, simulator -> instructions[1].literal.find(" "));
+    // if (simulator -> hdu.data_dependency_bits.at(simulator -> instructions[1].address) & 0b1)
     if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::I || simulator -> instructions[1].format == Format::S || simulator -> instructions[1].format == Format::SB) MuxA = 0b1; // Register Value
     else if (command == "auipc") MuxA = 0b10; // PC
     else if (command == "lui") MuxA = 0b11; // Interchange with immediate

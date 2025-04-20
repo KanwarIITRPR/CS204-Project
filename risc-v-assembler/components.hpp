@@ -19,6 +19,7 @@ struct Instruction {
     string literal;
     Format format;
     Stage stage;
+    bool is_stalled;
 };
 
 #define NULL_INSTRUCTION Instruction()
@@ -105,6 +106,58 @@ class ProcessorMemoryInterface {
         MemoryRegisters data_memory;
 };
 
+enum class PredictionState {
+    STRONGLY_NOT_TAKEN,
+    WEAKLY_NOT_TAKEN,
+    WEAKLY_TAKEN,
+    STRONGLY_TAKEN
+};
+
+class PHT {
+    private:
+        map<uint32_t, PredictionState> predictionTable;
+        const PredictionState initialPrediction = PredictionState::WEAKLY_TAKEN;
+
+    public:
+        PredictionState getCurrentState(uint32_t pc);
+        bool getPrediction(uint32_t pc);
+        bool isMisprediction(uint32_t pc, bool actualOutcome);
+        void updatePrediction(uint32_t pc, bool actualOutcome);
+        void printTable();
+};
+
+class BTB {
+    private:
+        map<uint32_t, pair<bool, uint32_t>> branchTargetBuffer;
+
+    public:
+        bool hasEntry(uint32_t pc);
+        bool isUnconditionalBranch(uint32_t pc);
+        uint32_t getTargetAddress(uint32_t pc);
+        void updateEntry(uint32_t pc, uint32_t targetAddress, bool isUnconditional);
+        void printTable();
+};
+
+class HazardDetectionUnit {
+    private:
+        map<uint32_t, Instruction> instruction_map;
+        int INSTRUCTION_SIZE;
+        
+    public:
+        map<uint32_t, pair<bool, bool>> data_dependency_bits;
+        map<uint32_t, pair<uint32_t, uint32_t>> data_dependency_map;
+
+        void ExtractDataDependencies();
+        bool HasDataDependency(Instruction premier_instruction, Instruction former_instruction);
+        Instruction NextinstructionForDependency(Instruction current_instruction);
+
+        uint8_t cycles_to_stall = 0;
+        // uint8_t stall_index = 0;
+        bool next_cycle_stall = false;
+
+        PipelinedSimulator* simulator;
+};
+
 class PipelinedSimulator {
     private:
         static const int REGISTER_COUNT = 32;
@@ -143,15 +196,21 @@ class PipelinedSimulator {
         bool previouslyPrintingPipelineRegisters = true;
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
+
+        bool CheckDataHazard();
+        void ForwardData();
+        bool NeedsForwardingA(uint8_t rs);
+        bool NeedsForwardingB(uint8_t rs);
+        uint32_t GetForwardedValue(uint8_t rs);
     
-        public:
+    public:
         ifstream fin;
         void Run(char** argV, bool each_stage);
         void Step(char** argV, bool each_stage);
         void RunInstruction(bool each_stage);
         
         Instruction ExtractInstruction(string machine_code);
-        uint32_t GenerateMask(uint8_t length);
+        uint32_t GenerateMask(int length);
         string GetStageName(Stage stage);
         
         void InitializeRegisters();
@@ -166,6 +225,7 @@ class PipelinedSimulator {
         uint32_t GetInstructionNumber(uint32_t address);
         Instruction GetSpecifiedInstruction();
 
+        void ShiftInstructionsStage();
         void UpdateBufferRegisters();
 
         void SetKnob1(bool set_value);
@@ -180,6 +240,9 @@ class PipelinedSimulator {
         ControlCircuit control;
         ProcessorMemoryInterface memory;
         IAG iag;
+        HazardDetectionUnit hdu;
+        PHT pht;
+        BTB btb;
 
         Instruction instructions[PIPELINE_STAGES]; // 0 - Fetch, ..., 4 - Writeback
 
@@ -187,11 +250,12 @@ class PipelinedSimulator {
             assembler.Assemble();
             fin.open(machine_file);
 
+            control.simulator = this;
+            hdu.simulator = this;
+
             InitializeRegisters();
             InitialParse();
             for (size_t i = 0; i < PIPELINE_STAGES; i++) instructions[i] = NULL_INSTRUCTION;
-
-            control.simulator = this;
         };
 
         friend class ControlCircuit;

@@ -6,6 +6,8 @@ main:
     # Storing n the value for which we have to calculate the factorial in x11
     lui x11, 0x10000
     lb x11, 0(x11)
+    add x5, x0, x0
+    add x7, x11, x5
 
     # Initializing the value of x17 to display -1 if error was found
     addi x17, x0, -1
