@@ -67,9 +67,16 @@ void PipelinedSimulator::InitialParse() {
         if (text_mode) {
             Instruction current_instruction = ExtractInstruction(stored_code);
             current_instruction.literal = command;
+            current_instruction.address = current_address;
             Debug::log("Extracted Instruction");
             memory.AddInstruction(current_address, current_instruction);
             Debug::log("Added Instruction to text map");
+
+            if (current_instruction.format == Format::SB) btb.updateEntry(current_address, (int32_t) current_address + (int32_t) current_instruction.immediate, 0);
+            else if (current_instruction.format == Format::UJ) {
+                Debug::log("> Address: " + to_string((int32_t) current_address) + ", Immediate: " + to_string((int32_t) current_instruction.immediate) + ", Result: " + to_string((int32_t) current_address + (int32_t) current_instruction.immediate));
+                btb.updateEntry(current_address, (int32_t) current_address + (int32_t) current_instruction.immediate, 1);
+            }
         } else {
             int bytes_stored = (stored_code.length() / 2) - 1;
             memory.AddData(current_address, GetDecimalNumber(stored_code), bytes_stored);
@@ -80,9 +87,27 @@ void PipelinedSimulator::InitialParse() {
     fin.clear();
     fin.seekg(0);
     Debug::log("Reset machine file as input");
+
+    btb.printTable();
+    hdu.ExtractDataDependencies();
+
+    for (auto pair: hdu.data_dependency_map) Debug::log(to_string(pair.first) + ": (" + to_string(pair.second.first) + ", " + to_string(pair.second.second) + ")");
 }
 
-uint32_t PipelinedSimulator::GenerateMask(uint8_t length) { return (1 << length) - 1; }
+uint32_t PipelinedSimulator::GenerateMask(int length) { return (1 << length) - 1; }
+
+void PipelinedSimulator::ShiftInstructionsStage() {
+    if (!instructions[3].is_stalled) instructions[4] = instructions[3];
+    else instructions[4] = NULL_INSTRUCTION;
+    if (!instructions[2].is_stalled) instructions[3] = instructions[2];
+    else instructions[3] = NULL_INSTRUCTION;
+    if (!instructions[1].is_stalled) instructions[2] = instructions[1];
+    else instructions[2] = NULL_INSTRUCTION;
+    if (!instructions[0].is_stalled) instructions[1] = instructions[0];
+    else instructions[1] = NULL_INSTRUCTION;
+
+    // if (hdu.stall_index == -1) hdu.stall_index = 1;
+}
 
 Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
     uint32_t bit_code = GetDecimalNumber(machine_code);
@@ -92,9 +117,11 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
     current_instruction.opcode = bit_code & 0x0000007F;
     current_instruction.format = GetFormat(current_instruction.opcode);
     current_instruction.stage = Stage::QUEUED;
+    current_instruction.is_stalled = false;
     
     // Helper variables required to format immediate values of the Formats
-    uint8_t lower_immediate, upper_immediate, immediate_12, immediate_10_5, immediate_4_1, immediate_11, immediate_20, immediate_10_1, immediate_19_12;
+    uint8_t lower_immediate, upper_immediate, immediate_12, immediate_10_5, immediate_4_1, immediate_11, immediate_20, immediate_19_12;
+    uint16_t immediate_10_1;
     const uint8_t IMMEDIATE_STORAGE_LENGTH = 32;
     uint32_t immediate_shift;
 
@@ -148,9 +175,9 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
             bit_code = bit_code >> REGISTER_LENGTH;
             upper_immediate = bit_code;
 
-            immediate_12 = upper_immediate >> 6;
+            immediate_12 = (upper_immediate >> 6) & GenerateMask(1);
             immediate_10_5 = upper_immediate & GenerateMask(6);
-            immediate_4_1 = lower_immediate >> 1;
+            immediate_4_1 = (lower_immediate >> 1) & GenerateMask(4);
             immediate_11 = lower_immediate & GenerateMask(1);
 
             immediate_shift = IMMEDIATE_STORAGE_LENGTH - immediate_bits.at(Format::SB);
@@ -168,11 +195,11 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
             bit_code = bit_code >> REGISTER_LENGTH;
             current_instruction.immediate = bit_code;
             
-            immediate_20 = current_instruction.immediate >> 19;
+            immediate_20 = (current_instruction.immediate >> 19) & GenerateMask(1);
             immediate_10_1 = (current_instruction.immediate >> 9) & GenerateMask(10);
             immediate_11 = (current_instruction.immediate >> 8) & GenerateMask(1);
-            immediate_19_12 = current_instruction.immediate & GenerateMask(8);
-
+            immediate_19_12 = (current_instruction.immediate) & GenerateMask(8);
+            
             immediate_shift = IMMEDIATE_STORAGE_LENGTH - immediate_bits.at(Format::UJ);
             current_instruction.immediate = (immediate_20 << 20) | (immediate_19_12 << 12) | (immediate_11 << 11) | (immediate_10_1 << 1);
             current_instruction.immediate = (int32_t)(current_instruction.immediate << immediate_shift) >> immediate_shift;
@@ -184,50 +211,89 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
 }
 // 
 void PipelinedSimulator::RunInstruction(bool each_stage = true) {
-    for (size_t i = PIPELINE_STAGES - 1; i > 0; i--) {
-        instructions[i] = instructions[i - 1];
-    }
+    ShiftInstructionsStage();
     control.UpdateControlSignals();
 
-    if (!IsNullInstruction(instructions[4])) {
+    if (!IsNullInstruction(instructions[4]) && !instructions[4].is_stalled) {
         Writeback();
         instructions[4].stage = Stage::COMMITTED;
     }
     
-    if (!IsNullInstruction(instructions[3])) {
+    if (!IsNullInstruction(instructions[3]) && !instructions[3].is_stalled) {
         MemoryAccess();
         instructions[3].stage = Stage::WRITEBACK;
     }
     
-    if (!IsNullInstruction(instructions[2])) {
+    if (!IsNullInstruction(instructions[2]) && !instructions[2].is_stalled) {
         Execute();
         instructions[2].stage = Stage::MEMORY_ACCESS;
     }
     
-    if (!IsNullInstruction(instructions[1])) {
+    if (!IsNullInstruction(instructions[1]) && !instructions[1].is_stalled) {
         Decode();
         instructions[1].stage = Stage::EXECUTE;
     }
     
-    if ((!finished && !IsNullInstruction(instructions[0])) || (!started && IsNullInstruction(instructions[0]))) {
+    if ((!finished && !IsNullInstruction(instructions[0]) && !instructions[0].is_stalled) || (!started && IsNullInstruction(instructions[0]))) {
         Fetch();
         instructions[0].stage = Stage::DECODE;
         started = true;
-    } else finished = true;
-
-    UpdateBufferRegisters();
+    }
+    // else if (!instructions[0].is_stalled) finished = true;
     
     control.IncrementClock();
+    if (hdu.cycles_to_stall) {
+        hdu.cycles_to_stall -= 1;
+        if (!hdu.cycles_to_stall) {
+            for (size_t i = 0; i < PIPELINE_STAGES; i++) {
+                if (!IsNullInstruction(instructions[i])) instructions[i].is_stalled = false;
+            }
+        }
+    }
     if (printInstructions) PrintInstructions();
-    if (printPipelineRegisters) PrintPipelineRegisters();
+    if (specified_instruction) PrintSpecifiedPipelineRegisters();
+    else if (printPipelineRegisters) PrintPipelineRegisters();
     if (printRegisterFile) PrintRegisterFile();
+
+    if (hdu.next_cycle_stall) {
+        instructions[0].is_stalled = true;
+        hdu.cycles_to_stall = 1;
+        hdu.next_cycle_stall = false;
+    }
+
+    if (!IsNullInstruction(instructions[1]) && hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
+        auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
+        if (dependency_bits.first) {
+            instructions[0].is_stalled = true;
+            hdu.cycles_to_stall = 2;
+            // hdu.stall_index = 1;
+        } else if (dependency_bits.second) {
+            // instructions[0].is_stalled = true;
+            hdu.next_cycle_stall = true;
+            // hdu.stall_index = -1;
+        }
+    }
+    
+    UpdateBufferRegisters();
+
+    finished = true;
+    for (size_t i = 0; i < PIPELINE_STAGES; i++) {
+        if (!IsNullInstruction(instructions[i])) finished = false;
+    }
 }
 
 void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
 void PipelinedSimulator::SetKnob2(bool set_value) { hasDataForwarding = set_value; }
 void PipelinedSimulator::SetKnob3(bool set_value) { printRegisterFile = set_value; }
 void PipelinedSimulator::SetKnob4(bool set_value) { printPipelineRegisters = set_value; }
-void PipelinedSimulator::SetKnob5(int instruction_index) { SetKnob4(true); specified_instruction = instruction_index; }
+void PipelinedSimulator::SetKnob5(uint32_t instruction_index) {
+    if (!printPipelineRegisters) return;
+    if (!instruction_index) {
+        if (previouslyPrintingPipelineRegisters) SetKnob4(true);
+        else SetKnob4(false);
+    } else previouslyPrintingPipelineRegisters = printPipelineRegisters;
+    specified_instruction = instruction_index;
+}
 void PipelinedSimulator::SetKnob6(bool set_value) { hasPipeline = set_value; }
 void PipelinedSimulator::SetKnob7(bool set_value) { printInstructions = set_value; }
 
@@ -241,10 +307,21 @@ void PipelinedSimulator::UpdateBufferRegisters() {
     buffer.RZ = inter_stage.RZ;
 }
 
+uint32_t PipelinedSimulator::GetInstructionNumber(uint32_t address) {
+    if (address >= DATA_ADDRESS) {
+        error_stream << "Instructions are not present in data memory: " << address << endl;
+        return 0;
+    }
+    return (address / iag.INSTRUCTION_SIZE) + 1;
+}
+
 void PipelinedSimulator::Fetch() {
-    memory.instruction_memory.MAR = iag.PC;
+    memory.instruction_memory.MAR = iag.buffer_PC;
     instructions[0] = memory.GetInstruction();
     IR = memory.instruction_memory.MDR;
+
+    PrintInstructionInfo(instructions[0]);
+    control.UpdateIAGSignals();
     iag.UpdatePC();
 
     Reset_x0();
@@ -337,56 +414,37 @@ void PipelinedSimulator::MemoryAccess() {
 
     switch (control.MuxMA) {
         case 0b1:
-            memory.instruction_memory.MAR = iag.PC;
-            break;
-        case 0b10:
             memory.data_memory.MAR = buffer.RZ;
             break;
         default: break;
     }
 
-    // what do for IR?
-    string command = memory_instruction.literal.substr(0, memory_instruction.literal.find(" "));
     switch (control.MuxMD) {
         case 0b1:
-        // Separate it for all load instructions
-        memory.GetDataValue();
-        break;
+            memory.GetDataValue(1);
+            break;
         case 0b10:
-        // Separate it for all store instructions
+            memory.GetDataValue(2);
+            break;
+        case 0b11:
+            memory.GetDataValue(4);
+            break;
+        case 0b100:
             memory.data_memory.MDR = buffer.RM;
-            memory.StoreDataValue();
+            memory.StoreDataValue(1);
+            break;
+        case 0b101:
+            memory.data_memory.MDR = buffer.RM;
+            memory.StoreDataValue(2);
+            break;
+        case 0b110:
+            memory.data_memory.MDR = buffer.RM;
+            memory.StoreDataValue(4);
             break;
         default: break;
     }
 
-    switch (control.DemuxMD) {
-        case 0b1:
-            IR = memory.instruction_memory.MDR;
-            break;
-        case 0b10:
-            break;
-        default: break;
-    }
-
-    switch (control.MuxPC) {
-        case 0b0:
-            // PC = PC;
-            break;
-        case 0b1:
-            iag.PC = buffer.RZ;
-            break;
-        default: break;
-    }
-
-    switch (control.MuxINC) {
-        case 0b0:
-            break;
-        case 0b1:
-            iag.PC = iag.buffer_PC + memory_instruction.immediate;
-            break;
-        default: break;
-    }
+    // iag.UpdatePC();
 
     switch (control.MuxY) {
         case 0b1:
@@ -412,7 +470,25 @@ void PipelinedSimulator::Writeback() {
     Reset_x0();
 }
 
+Instruction PipelinedSimulator::GetSpecifiedInstruction() {
+    for (size_t i = 0; i < PIPELINE_STAGES; i++) {
+        if (specified_instruction == GetInstructionNumber(instructions[i].address)) return instructions[i];
+    }
+    return NULL_INSTRUCTION;
+}
 
+string PipelinedSimulator::GetStageName(Stage stage) {
+    switch (stage) {
+        case Stage::QUEUED: return "Queued";
+        case Stage::FETCH: return "Fetch";
+        case Stage::DECODE: return "Decode";
+        case Stage::EXECUTE: return "Execute";
+        case Stage::MEMORY_ACCESS: return "Memory Access";
+        case Stage::WRITEBACK: return "Writeback";
+        case Stage::COMMITTED: return "Committed";
+        default: return "";
+    }
+}
 
 void PipelinedSimulator::PrintRegisterFile() {
     uint8_t columns = 4, rows = REGISTER_COUNT / columns;
@@ -453,10 +529,139 @@ void PipelinedSimulator::PrintPipelineRegisters() {
     cout << "----------------------------------" << endl;
 }
 
+void PipelinedSimulator::PrintSpecifiedPipelineRegisters() {
+    Instruction highlighted_instruction = GetSpecifiedInstruction();
+    if (IsNullInstruction(highlighted_instruction)) return;
+
+    cout << "\n---- Specified Pipeline Registers ----\n";
+    cout << "Clock Cycles: " << control.CyclesExecuted() << endl;
+    cout << "Specified Instruction: " << highlighted_instruction.literal << endl;
+    cout << "Current Stage: " << GetStageName(highlighted_instruction.stage) << endl;
+
+    if (highlighted_instruction.stage == Stage::DECODE || highlighted_instruction.stage == Stage::EXECUTE || highlighted_instruction.stage == Stage::MEMORY_ACCESS || highlighted_instruction.stage == Stage::WRITEBACK) {
+        cout << "\nInter-Stage Registers\n" << hex;
+    }
+    if (highlighted_instruction.stage == Stage::DECODE) {
+        cout << "> RA: 0x" << setw(8) << setfill('0') << inter_stage.RA << endl;
+        cout << "> RB: 0x" << setw(8) << setfill('0') << inter_stage.RB << endl;
+    }
+    if (highlighted_instruction.stage == Stage::MEMORY_ACCESS) cout << "> RM: 0x" << setw(8) << setfill('0') << inter_stage.RM << endl;
+    if (highlighted_instruction.stage == Stage::EXECUTE) cout << "> RZ: 0x" << setw(8) << setfill('0') << inter_stage.RZ << endl;
+    if (highlighted_instruction.stage == Stage::WRITEBACK) cout << "> RY: 0x" << setw(8) << setfill('0') << inter_stage.RY << endl;
+    
+    if (highlighted_instruction.stage == Stage::FETCH || highlighted_instruction.stage == Stage::MEMORY_ACCESS) {
+        cout << "\nPMI Registers\n" << hex;
+    }
+    if (highlighted_instruction.stage == Stage::FETCH) {
+        cout << "> Instruction MAR: 0x" << setw(8) << setfill('0') << memory.instruction_memory.MAR << endl;
+        cout << "> Instruction MDR: 0x" << setw(8) << setfill('0') << memory.instruction_memory.MDR << endl;
+    }
+    if (highlighted_instruction.stage == Stage::MEMORY_ACCESS) {
+        cout << "> Data MAR: 0x" << setw(8) << setfill('0') << memory.data_memory.MAR << endl;
+        cout << "> Data MDR: 0x" << setw(8) << setfill('0') << memory.data_memory.MDR << endl;
+    }
+    
+    if (highlighted_instruction.stage == Stage::FETCH) {
+        cout << "\nIAG Registers\n" << hex;
+        cout << "> IR: 0x" << setw(8) << setfill('0') << IR << endl;
+        cout << "> PC: 0x" << setw(8) << setfill('0') << iag.PC << endl;
+    }
+    cout << "----------------------------------------" << endl;
+}
+
 void PipelinedSimulator::PrintInstructions() {
     cout << "\n------ Instructions ------" << endl;
-    for (size_t i = 0; i < PIPELINE_STAGES; i++) cout << stage_name[i][0] << ": " << instructions[i].literal << endl;
+    for (size_t i = 0; i < PIPELINE_STAGES; i++) cout << GetStageName((Stage)((int)Stage::FETCH + i))[0] << ": " << instructions[i].literal << endl;
     cout << "--------------------------" << endl;
+}
+
+void PipelinedSimulator::PrintInstructionInfo(Instruction instruction) {
+    cout << "\n---- Instruction " << instruction.literal << " ----" << endl;
+    cout << "> Address: " << setw(8) << setfill('0') << hex << instruction.address << endl;
+    cout << "> Format: " << GetFormatName(instruction.format) << endl;
+    cout << "> Stage: " << GetStageName(instruction.stage) << endl;
+    cout << "> Is Stalled?: " << instruction.is_stalled << endl;
+
+    cout << "\n> Machine Code: " << setw(8) << setfill('0') << hex << instruction.machine_code << endl;
+    cout << "> Opcode: " << DecimalToBinary(instruction.opcode, OPCODE_LENGTH) << endl;
+    cout << "> Funct3: " << DecimalToBinary(instruction.funct3, FUNCT3_LENGTH) << endl;
+    cout << "> Funct7: " << DecimalToBinary(instruction.funct7, FUNCT7_LENGTH) << endl;
+    cout << "> Rd: " << DecimalToBinary(instruction.rd, REGISTER_LENGTH) << endl;
+    cout << "> Rs1: " << DecimalToBinary(instruction.rs1, REGISTER_LENGTH) << endl;
+    cout << "> Rs2: " << DecimalToBinary(instruction.rs2, REGISTER_LENGTH) << endl;
+    if (instruction.format != Format::R) cout << "> Immediate: " << DecimalToBinary(instruction.immediate, immediate_bits.at(instruction.format)) << endl;
+
+    cout << "----------------------";
+    for (size_t i = 0; i < instruction.literal.length(); i++) cout << "-";
+    cout << endl;
+}
+
+bool PipelinedSimulator::NeedsForwardingA(uint8_t rs) {
+    // Don't forward for register x0 (always 0)
+    if (rs == 0) return false;
+    
+    // Check EX/MEM stage (ALU result available)
+    if (!IsNullInstruction(instructions[2]) && 
+        instructions[2].rd == rs && 
+        control.EnableRegisterFile) {
+        return true;
+    }
+    
+    // Check MEM/WB stage (Memory or ALU result available)
+    if (!IsNullInstruction(instructions[3]) && 
+        instructions[3].rd == rs && 
+        control.EnableRegisterFile) {
+        return true;
+    }
+    
+    return false;
+}
+
+bool PipelinedSimulator::NeedsForwardingB(uint8_t rs) {
+    return NeedsForwardingA(rs);
+}
+
+uint32_t PipelinedSimulator::GetForwardedValue(uint8_t rs) {
+    // EX/MEM stage has higher priority (newer value)
+    if (!IsNullInstruction(instructions[2]) && 
+        instructions[2].rd == rs && 
+        control.EnableRegisterFile) {
+        return inter_stage.RZ; // ALU result from EX stage
+    }
+    
+    // MEM/WB stage
+    if (!IsNullInstruction(instructions[3]) && 
+        instructions[3].rd == rs && 
+        control.EnableRegisterFile) {
+        return buffer.RY; // Value to be written back
+    }
+    
+    // Should not reach here if called properly
+    return 0;
+}
+
+void PipelinedSimulator::ForwardData() {
+    if (!hasDataForwarding) return;
+    
+    Instruction decode_instruction = instructions[1];
+    
+    // Only check for data forwarding if we have a valid instruction in decode
+    if (IsNullInstruction(decode_instruction)) return;
+    
+    // For RA (rs1)
+    if (control.MuxA == 0b1 && NeedsForwardingA(decode_instruction.rs1)) {
+        inter_stage.RA = GetForwardedValue(decode_instruction.rs1);
+    }
+    
+    // For RB (rs2)
+    if (control.MuxB == 0b1 && NeedsForwardingB(decode_instruction.rs2)) {
+        inter_stage.RB = GetForwardedValue(decode_instruction.rs2);
+    }
+    
+    // For store instructions (forwarding to RM)
+    if (control.MuxB == 0b11 && NeedsForwardingB(decode_instruction.rs2)) {
+        inter_stage.RM = GetForwardedValue(decode_instruction.rs2);
+    }
 }
 
 bool Debug::debug = true;
@@ -472,6 +677,7 @@ int main(int argC, char** argV) {
     int run_time = (argC > 1) ? GetDecimalNumber(argV[1]) : 2;
     if (argC > 2) (GetDecimalNumber(argV[2]) != 0) ? Debug::set(1) : Debug::set(0);
     PipelinedSimulator sim(std_input_file, std_output_file);
+    // sim.SetKnob5(2);
 
     // sim.Run(argV, false);
     // sim.Step(argV, false);

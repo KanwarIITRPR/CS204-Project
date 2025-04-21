@@ -339,9 +339,11 @@ uint32_t Assembler::Get_U_Code(vector<string> tokens) {
 uint32_t Assembler::Get_UJ_Code(vector<string> tokens) {
     uint8_t operation_code = opcode.at(tokens[0]);
     uint8_t rd = register_ID.at(tokens[1]);
+    // cout << tokens[2] << " " << GetDecimalNumber(tokens[2]) << " " << (GetDecimalNumber(tokens[2]) >> 1) << DecimalToBinary(GetDecimalNumber(tokens[2]) >> 1, immediate_bits.at(Format::UJ)) << endl;
     string immediate = DecimalToBinary(GetDecimalNumber(tokens[2]) >> 1, immediate_bits.at(Format::UJ));
     
     uint32_t formatted_immediate = BinaryToDecimal(immediate[0] + immediate.substr(10, 10) + immediate[9] + immediate.substr(1, 8));
+    // cout << DecimalToBinary(formatted_immediate) << endl;
 
     uint32_t machine_code = formatted_immediate;
     machine_code = machine_code << REGISTER_LENGTH;
