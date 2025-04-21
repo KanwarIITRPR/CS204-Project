@@ -64,6 +64,11 @@ bool IsLoadOperation(string operation) {
     return opcode.find(operation) -> second == 0b0000011;
 }
 
+bool IsLoadOperation(uint8_t operation_code) {
+    // if (!IsValidOperation(operation)) return false;
+    return operation_code == 0b0000011;
+}
+
 bool HasOffsetRegisterCoupling(string operation) {
     switch (opcode.find(operation) -> second) {
         case 0b0000011:

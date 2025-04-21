@@ -12,25 +12,25 @@ bool PHT::getPrediction(uint32_t pc) {
     }
 }
 
-// bool PHT::isMisprediction(uint32_t pc, bool actualOutcome) {
-//     if (actualOutcome) {
-//         switch (getCurrentState(pc)) {
-//             case PredictionState::STRONGLY_TAKEN: return false;
-//             case PredictionState::WEAKLY_TAKEN: return false;
-//             case PredictionState::WEAKLY_NOT_TAKEN: return true;
-//             case PredictionState::STRONGLY_NOT_TAKEN: return true;
-//             default: break;
-//         }
-//     } else {
-//         switch (getCurrentState(pc)) {
-//             case PredictionState::STRONGLY_TAKEN: return true;
-//             case PredictionState::WEAKLY_TAKEN: return true;
-//             case PredictionState::WEAKLY_NOT_TAKEN: return false;
-//             case PredictionState::STRONGLY_NOT_TAKEN: return false;
-//             default: break;
-//         }
-//     }
-// }
+bool PHT::isMisprediction(uint32_t pc, bool actualOutcome) {
+    if (actualOutcome) {
+        switch (getCurrentState(pc)) {
+            case PredictionState::STRONGLY_TAKEN: return false;
+            case PredictionState::WEAKLY_TAKEN: return false;
+            case PredictionState::WEAKLY_NOT_TAKEN: return true;
+            case PredictionState::STRONGLY_NOT_TAKEN: return true;
+            default: break;
+        }
+    } else {
+        switch (getCurrentState(pc)) {
+            case PredictionState::STRONGLY_TAKEN: return true;
+            case PredictionState::WEAKLY_TAKEN: return true;
+            case PredictionState::WEAKLY_NOT_TAKEN: return false;
+            case PredictionState::STRONGLY_NOT_TAKEN: return false;
+            default: break;
+        }
+    }
+}
 
 // Update prediction based on actual branch outcome
 void PHT::updatePrediction(uint32_t pc, bool actualOutcome) {

@@ -6,12 +6,12 @@ void PipelinedSimulator::Reset_x0() { register_file[0] = 0;}
 
 // 
 void PipelinedSimulator::Run(char** argV, bool each_stage = true) {
-    while (!reached_end) RunInstruction(each_stage);
+    while (!finished) RunInstruction(each_stage);
     cout << "Program Ran Successfully!" << endl;
 }
 // 
 void PipelinedSimulator::Step(char** argV, bool each_stage = true) {
-    while (!reached_end) {
+    while (!finished) {
         cin.get();
         RunInstruction(each_stage);
     }
@@ -209,7 +209,7 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
     }
     return current_instruction;
 }
-// 
+
 void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     ShiftInstructionsStage();
     control.UpdateControlSignals();
@@ -236,7 +236,7 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     }
     
     if ((!finished && !instructions[0].is_stalled) || (!started && IsNullInstruction(instructions[0]))) {
-        instructions[0].stage = Stage::FETCH;
+        // instructions[0].stage = Stage::FETCH;
         Fetch();
         instructions[0].stage = Stage::DECODE;
         started = true;
@@ -266,16 +266,35 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
         hdu.next_cycle_stall = false;
     }
 
+    // if (!IsNullInstruction(instructions[1]) && hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
+    //     auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
+    //     if (dependency_bits.first) {
+    //         instructions[0].is_stalled = true;
+    //         hdu.cycles_to_stall = 2;
+    //         // hdu.stall_index = 1;
+    //     } else if (dependency_bits.second) {
+    //         // instructions[0].is_stalled = true;
+    //         hdu.next_cycle_stall = true;
+    //         // hdu.stall_index = -1;
+    //     }
+    // }
+
     if (!IsNullInstruction(instructions[1]) && hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
-        auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
-        if (dependency_bits.first) {
-            instructions[0].is_stalled = true;
-            hdu.cycles_to_stall = 2;
-            // hdu.stall_index = 1;
-        } else if (dependency_bits.second) {
-            // instructions[0].is_stalled = true;
-            hdu.next_cycle_stall = true;
-            // hdu.stall_index = -1;
+        if (!hasDataForwarding) {
+            auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
+            if (dependency_bits.first) {
+                instructions[0].is_stalled = true;
+                hdu.cycles_to_stall = 2;
+            } else if (dependency_bits.second) {
+                hdu.next_cycle_stall = true;
+            }
+        }
+        // When data forwarding is enabled, we only need to stall for load-use hazards
+        else if (hasDataForwarding) {
+            if (IsLoadOperation(instructions[1].opcode) && hdu.data_dependency_bits.at(instructions[1].address).first) {
+                instructions[0].is_stalled = true;
+                hdu.cycles_to_stall = 1;
+            }
         }
     }
     
@@ -346,7 +365,6 @@ void PipelinedSimulator::Fetch() {
     Reset_x0();
 }
 
-// 
 void PipelinedSimulator::Decode() {
     Instruction decode_instruction = instructions[1];
 
@@ -359,6 +377,12 @@ void PipelinedSimulator::Decode() {
             break;
         case 0b11:
             inter_stage.RA = decode_instruction.immediate;
+            break;
+        case 0b100:
+            inter_stage.RA = inter_stage.RZ;
+            break;
+        case 0b101:
+            inter_stage.RA = inter_stage.RY;
             break;
         default: break;
     }
@@ -376,13 +400,18 @@ void PipelinedSimulator::Decode() {
         case 0b100:
             inter_stage.RB = iag.INSTRUCTION_SIZE * BYTE_SIZE - immediate_bits.at(Format::U);
             break;
+        case 0b101:
+            inter_stage.RB = inter_stage.RZ;
+            break;
+        case 0b110:
+            inter_stage.RB = inter_stage.RY;
+            break;
         default: break;
     }
 
     Reset_x0();
 }
 
-// 
 void PipelinedSimulator::Execute() {
     switch (control.ALU) {
         case 0b1:
@@ -392,6 +421,10 @@ void PipelinedSimulator::Execute() {
         case 0b11:
             inter_stage.RZ = buffer.RA * buffer.RB; break;
         case 0b100:
+            if (buffer.RB == 0) {
+                error_stream << "Divide by zero isn't possible: " << instructions[2].literal << endl;
+                return;
+            }
             inter_stage.RZ = buffer.RA / buffer.RB; break;
         case 0b101:
             inter_stage.RZ = buffer.RA % buffer.RB; break;
@@ -410,35 +443,38 @@ void PipelinedSimulator::Execute() {
         case 0b1100:
             inter_stage.RZ = ((int32_t) buffer.RA < (int32_t) buffer.RB) ? 1 : 0; break;
         case 0b1101:
-            control.MuxINC = (int32_t) buffer.RA == (int32_t) buffer.RB;
+            actual_outcome = control.MuxINC = (int32_t) buffer.RA == (int32_t) buffer.RB;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
-            if (!control.MuxINC) recently_flushed = true;
             break;
         case 0b1110:
-            control.MuxINC = (int32_t) buffer.RA != (int32_t) buffer.RB;
+            actual_outcome = control.MuxINC = (int32_t) buffer.RA != (int32_t) buffer.RB;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
-            if (!control.MuxINC) recently_flushed = true;
             break;
         case 0b1111:
-            control.MuxINC = (int32_t) buffer.RA < (int32_t) buffer.RB;
+            actual_outcome = control.MuxINC = (int32_t) buffer.RA < (int32_t) buffer.RB;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
-            if (!control.MuxINC) recently_flushed = true;
             break;
         case 0b10000:
-            control.MuxINC = (int32_t) buffer.RA >= (int32_t) buffer.RB;
+            actual_outcome = control.MuxINC = (int32_t) buffer.RA >= (int32_t) buffer.RB;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
-            if (!control.MuxINC) recently_flushed = true;
             break;
         case 0b10001:
             inter_stage.RZ = buffer.RA + (buffer.RB << (iag.INSTRUCTION_SIZE * BYTE_SIZE - immediate_bits.at(Format::U)));
             break;
         case 0b10010:
             inter_stage.RZ = buffer.RA + buffer.RB;
-            if (inter_stage.RZ != instructions[2].address + iag.INSTRUCTION_SIZE) Flush();
+            if (inter_stage.RZ != instructions[2].address + iag.INSTRUCTION_SIZE) {
+                return_jump = true;
+                recently_flushed = true;
+            }
             break;
         case 0b10011:
             inter_stage.RZ = buffer.RA + buffer.RB;
@@ -450,7 +486,6 @@ void PipelinedSimulator::Execute() {
     Reset_x0();
 }
 
-// 
 void PipelinedSimulator::MemoryAccess() {
     Instruction memory_instruction = instructions[3];
 
@@ -643,78 +678,11 @@ void PipelinedSimulator::PrintInstructionInfo(Instruction instruction) {
     cout << endl;
 }
 
-bool PipelinedSimulator::NeedsForwardingA(uint8_t rs) {
-    // Don't forward for register x0 (always 0)
-    if (rs == 0) return false;
-    
-    // Check EX/MEM stage (ALU result available)
-    if (!IsNullInstruction(instructions[2]) && 
-        instructions[2].rd == rs && 
-        control.EnableRegisterFile) {
-        return true;
-    }
-    
-    // Check MEM/WB stage (Memory or ALU result available)
-    if (!IsNullInstruction(instructions[3]) && 
-        instructions[3].rd == rs && 
-        control.EnableRegisterFile) {
-        return true;
-    }
-    
-    return false;
-}
-
-bool PipelinedSimulator::NeedsForwardingB(uint8_t rs) {
-    return NeedsForwardingA(rs);
-}
-
-uint32_t PipelinedSimulator::GetForwardedValue(uint8_t rs) {
-    // EX/MEM stage has higher priority (newer value)
-    if (!IsNullInstruction(instructions[2]) && 
-        instructions[2].rd == rs && 
-        control.EnableRegisterFile) {
-        return inter_stage.RZ; // ALU result from EX stage
-    }
-    
-    // MEM/WB stage
-    if (!IsNullInstruction(instructions[3]) && 
-        instructions[3].rd == rs && 
-        control.EnableRegisterFile) {
-        return buffer.RY; // Value to be written back
-    }
-    
-    // Should not reach here if called properly
-    return 0;
-}
-
-void PipelinedSimulator::ForwardData() {
-    if (!hasDataForwarding) return;
-    
-    Instruction decode_instruction = instructions[1];
-    
-    // Only check for data forwarding if we have a valid instruction in decode
-    if (IsNullInstruction(decode_instruction)) return;
-    
-    // For RA (rs1)
-    if (control.MuxA == 0b1 && NeedsForwardingA(decode_instruction.rs1)) {
-        inter_stage.RA = GetForwardedValue(decode_instruction.rs1);
-    }
-    
-    // For RB (rs2)
-    if (control.MuxB == 0b1 && NeedsForwardingB(decode_instruction.rs2)) {
-        inter_stage.RB = GetForwardedValue(decode_instruction.rs2);
-    }
-    
-    // For store instructions (forwarding to RM)
-    if (control.MuxB == 0b11 && NeedsForwardingB(decode_instruction.rs2)) {
-        inter_stage.RM = GetForwardedValue(decode_instruction.rs2);
-    }
-}
-
 bool Debug::debug = true;
 int Debug::debug_count = 0;
 
 int main(int argC, char** argV) {
+    InitializeFileStreams();
     // if (argC < 3) {
     //     cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
     //     return 1;
@@ -731,11 +699,12 @@ int main(int argC, char** argV) {
     sim.SetKnob8((argC > 7) ? GetDecimalNumber(argV[7]) : 1); // Fetched Instruction Details
 
     // sim.Run(argV, false);
-    // sim.Step(argV, false);
-    for (size_t i = 0; i < run_time; i++) {
-        sim.RunInstruction();
-        cout << "======================================================" << endl;
-    }
+    sim.Step(argV, false);
+    // for (size_t i = 0; i < run_time; i++) {
+    //     sim.RunInstruction();
+    //     cout << "======================================================" << endl;
+    // }
 
     sim.fin.close();
+    CloseFileStreams();
 }

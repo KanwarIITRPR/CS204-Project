@@ -47,6 +47,24 @@ class Debug {
 struct MemoryRegisters { uint32_t MAR, MDR; };
 
 class PipelinedSimulator;
+
+class ForwardingUnit {
+    private:
+        PipelinedSimulator* simulator;
+    
+    public:
+        ForwardingUnit(PipelinedSimulator* sim) : simulator(sim) {}
+    
+        // Checks if forwarding is needed and returns the source
+        // 0: No forwarding needed (use register file)
+        // 1: Forward from EX/MEM (RZ)
+        // 2: Forward from MEM/WB (RY)
+        bool CheckForwardA_EX(uint32_t rs1);
+        bool CheckForwardB_EX(uint32_t rs2);
+        bool CheckForwardA_MEM(uint32_t rs1);
+        bool CheckForwardB_MEM(uint32_t rs2);
+};
+
 class IAG {
     private:
         
@@ -109,6 +127,8 @@ class ProcessorMemoryInterface {
 
         MemoryRegisters instruction_memory;
         MemoryRegisters data_memory;
+
+        bool is_data_forwarded = false;
 };
 
 enum class PredictionState {
@@ -172,9 +192,6 @@ class PipelinedSimulator {
 
         // map<uint32_t, uint8_t> data_map;
         // map<uint32_t, Instruction> text_map;
-
-        
-        InterStageRegisters inter_stage;
         
         // uint32_t MAR = 0x00000000;
         // uint32_t MDR = 0x00000000;
@@ -234,6 +251,8 @@ class PipelinedSimulator {
         void UpdateBufferRegisters();
         void Flush();
         bool recently_flushed = false;
+        bool actual_outcome = true;
+        bool return_jump = false;
 
         void SetKnob1(bool set_value);
         void SetKnob2(bool set_value);
@@ -246,9 +265,11 @@ class PipelinedSimulator {
 
         void PrintInstructionInfo(Instruction instruction);
 
+        InterStageRegisters inter_stage;
         InterStageRegisters buffer;
 
         Assembler assembler;
+        ForwardingUnit forwarding_unit;
         ControlCircuit control;
         ProcessorMemoryInterface memory;
         IAG iag;
@@ -258,7 +279,7 @@ class PipelinedSimulator {
 
         Instruction instructions[PIPELINE_STAGES]; // 0 - Fetch, ..., 4 - Writeback
 
-        PipelinedSimulator(const string assembly_file, const string machine_file) : assembler(assembly_file, machine_file) {
+        PipelinedSimulator(const string assembly_file, const string machine_file) : assembler(assembly_file, machine_file), forwarding_unit(this) {
             assembler.Assemble();
             fin.open(machine_file);
             
