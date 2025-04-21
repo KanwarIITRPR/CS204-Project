@@ -47,6 +47,57 @@ class Debug {
 struct MemoryRegisters { uint32_t MAR, MDR; };
 
 class PipelinedSimulator;
+
+class ForwardingUnit {
+    private:
+        PipelinedSimulator* simulator;
+    
+    public:
+        ForwardingUnit(PipelinedSimulator* sim) : simulator(sim) {}
+    
+        // Checks if forwarding is needed and returns the source
+        // 0: No forwarding needed (use register file)
+        // 1: Forward from EX/MEM (RZ)
+        // 2: Forward from MEM/WB (RY)
+        int CheckForwardA(uint32_t rs1) {
+            // Forward from EX/MEM stage
+            if (simulator->control.EnableRegisterFile &&
+                !IsNullInstruction(simulator->instructions[3]) &&
+                simulator->instructions[3].rd != 0 &&
+                simulator->instructions[3].rd == rs1) {
+                return 1;
+            }
+            // Forward from MEM/WB stage
+            else if (simulator->control.EnableRegisterFile &&
+                     !IsNullInstruction(simulator->instructions[4]) &&
+                     simulator->instructions[4].rd != 0 &&
+                     simulator->instructions[4].rd == rs1) {
+                return 2;
+            }
+            // No forwarding needed
+            return 0;
+        }
+    
+        int CheckForwardB(uint32_t rs2) {
+            // Forward from EX/MEM stage
+            if (simulator->control.EnableRegisterFile &&
+                !IsNullInstruction(simulator->instructions[3]) &&
+                simulator->instructions[3].rd != 0 &&
+                simulator->instructions[3].rd == rs2) {
+                return 1;
+            }
+            // Forward from MEM/WB stage
+            else if (simulator->control.EnableRegisterFile &&
+                     !IsNullInstruction(simulator->instructions[4]) &&
+                     simulator->instructions[4].rd != 0 &&
+                     simulator->instructions[4].rd == rs2) {
+                return 2;
+            }
+            // No forwarding needed
+            return 0;
+        }
+    };
+
 class IAG {
     private:
         
@@ -200,11 +251,6 @@ class PipelinedSimulator {
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
 
-        bool CheckDataHazard();
-        void ForwardData();
-        bool NeedsForwardingA(uint8_t rs);
-        bool NeedsForwardingB(uint8_t rs);
-        uint32_t GetForwardedValue(uint8_t rs);
     
     public:
         ifstream fin;
@@ -242,7 +288,7 @@ class PipelinedSimulator {
         void PrintInstructionInfo(Instruction instruction);
 
         InterStageRegisters buffer;
-
+        ForwardingUnit forwarding_unit;   //added for data forwarding
         Assembler assembler;
         ControlCircuit control;
         ProcessorMemoryInterface memory;
@@ -253,7 +299,7 @@ class PipelinedSimulator {
 
         Instruction instructions[PIPELINE_STAGES]; // 0 - Fetch, ..., 4 - Writeback
 
-        PipelinedSimulator(const string assembly_file, const string machine_file) : assembler(assembly_file, machine_file) {
+        PipelinedSimulator(const string assembly_file, const string machine_file) : assembler(assembly_file, machine_file), forwarding_unit(this) {
             assembler.Assemble();
             fin.open(machine_file);
             
@@ -269,4 +315,4 @@ class PipelinedSimulator {
         friend class ControlCircuit;
 };
 
-#endif
+#endif  

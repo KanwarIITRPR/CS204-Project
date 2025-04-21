@@ -250,6 +250,7 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
             }
         }
     }
+
     if (printInstructions) PrintInstructions();
     if (specified_instruction) PrintSpecifiedPipelineRegisters();
     else if (printPipelineRegisters) PrintPipelineRegisters();
@@ -261,16 +262,44 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
         hdu.next_cycle_stall = false;
     }
 
-    if (!IsNullInstruction(instructions[1]) && hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
+    // if (!IsNullInstruction(instructions[1]) && hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
+    //     auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
+    //     if (dependency_bits.first) {
+    //         instructions[0].is_stalled = true;
+    //         hdu.cycles_to_stall = 2;
+    //         // hdu.stall_index = 1;
+    //     } else if (dependency_bits.second) {
+    //         // instructions[0].is_stalled = true;
+    //         hdu.next_cycle_stall = true;
+    //         // hdu.stall_index = -1;
+    //     }
+    // }
+    // UpdateBufferRegisters();
+    // finished = true;
+    // for (size_t i = 0; i < PIPELINE_STAGES; i++) {
+    //     if (!IsNullInstruction(instructions[i])) finished = false;   
+    // }
+
+
+    // Modify hazard detection behavior when data forwarding is enabled
+    if (!hasDataForwarding && !IsNullInstruction(instructions[1]) && 
+        hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
         auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
         if (dependency_bits.first) {
             instructions[0].is_stalled = true;
             hdu.cycles_to_stall = 2;
-            // hdu.stall_index = 1;
         } else if (dependency_bits.second) {
-            // instructions[0].is_stalled = true;
             hdu.next_cycle_stall = true;
-            // hdu.stall_index = -1;
+        }
+    }
+    // When data forwarding is enabled, we only need to stall for load-use hazards
+    else if (hasDataForwarding && !IsNullInstruction(instructions[1]) && !IsNullInstruction(instructions[2])) {
+        // Check for load-use data hazard
+        if (control.MuxY == 0b10 && // Load instruction in EX/MEM stage
+            (instructions[2].rd == instructions[1].rs1 || 
+             instructions[2].rd == instructions[1].rs2)) {
+            instructions[0].is_stalled = true;
+            hdu.cycles_to_stall = 1;
         }
     }
     
@@ -282,8 +311,16 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     }
 }
 
+
 void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
-void PipelinedSimulator::SetKnob2(bool set_value) { hasDataForwarding = set_value; }
+void PipelinedSimulator::SetKnob2(bool set_value) { 
+    hasDataForwarding = set_value;
+    if (set_value) {
+        Debug::log("Data forwarding enabled");
+    } else {
+        Debug::log("Data forwarding disabled");
+    }
+}
 void PipelinedSimulator::SetKnob3(bool set_value) { printRegisterFile = set_value; }
 void PipelinedSimulator::SetKnob4(bool set_value) { printPipelineRegisters = set_value; }
 void PipelinedSimulator::SetKnob5(uint32_t instruction_index) {
@@ -331,6 +368,44 @@ void PipelinedSimulator::Fetch() {
 void PipelinedSimulator::Decode() {
     Instruction decode_instruction = instructions[1];
 
+    uint32_t rs1 = decode_instruction.rs1;
+    uint32_t rs2 = decode_instruction.rs2;
+    
+    uint32_t rs1_value = register_file[rs1];
+    uint32_t rs2_value = register_file[rs2];
+    
+    // Apply data forwarding if enabled
+    if (hasDataForwarding) {
+        // Check for forwarding to rs1
+        int forwardA = forwarding_unit.CheckForwardA(rs1);
+        switch (forwardA) {
+            case 1: // Forward from EX/MEM (RZ)
+                rs1_value = inter_stage.RZ;
+                break;
+            case 2: // Forward from MEM/WB (RY)
+                rs1_value = buffer.RY;
+                break;
+            default:
+                break;
+        }
+        
+        // Check for forwarding to rs2
+        int forwardB = forwarding_unit.CheckForwardB(rs2);
+        switch (forwardB) {
+            case 1: // Forward from EX/MEM (RZ)
+                rs2_value = inter_stage.RZ;
+                break;
+            case 2: // Forward from MEM/WB (RY)
+                rs2_value = buffer.RY;
+                break;
+            default:
+                break;
+        }
+    }
+
+    // added till above for forwarding
+
+
     switch (control.MuxA) {
         case 0b1:
             inter_stage.RA = register_file[decode_instruction.rs1];
@@ -366,6 +441,28 @@ void PipelinedSimulator::Decode() {
 
 // 
 void PipelinedSimulator::Execute() {
+    Instruction execute_instruction = instructions[2];
+    
+    // Additional data forwarding for store instructions
+    if (hasDataForwarding && execute_instruction.format == Format::S) {
+        uint32_t rs2 = execute_instruction.rs2;
+        
+        // Check if we need to forward the value to be stored
+        int forwardM = forwarding_unit.CheckForwardB(rs2);
+        switch (forwardM) {
+            case 1: // Forward from EX/MEM (RZ)
+                inter_stage.RM = inter_stage.RZ;
+                break;
+            case 2: // Forward from MEM/WB (RY)
+                inter_stage.RM = buffer.RY;
+                break;
+            default:
+                break;
+        }
+    }
+    // Apply data forwarding if enabled
+
+
     switch (control.ALU) {
         case 0b1:
             inter_stage.RZ = buffer.RA + buffer.RB; break;
@@ -596,73 +693,7 @@ void PipelinedSimulator::PrintInstructionInfo(Instruction instruction) {
     cout << endl;
 }
 
-bool PipelinedSimulator::NeedsForwardingA(uint8_t rs) {
-    // Don't forward for register x0 (always 0)
-    if (rs == 0) return false;
-    
-    // Check EX/MEM stage (ALU result available)
-    if (!IsNullInstruction(instructions[2]) && 
-        instructions[2].rd == rs && 
-        control.EnableRegisterFile) {
-        return true;
-    }
-    
-    // Check MEM/WB stage (Memory or ALU result available)
-    if (!IsNullInstruction(instructions[3]) && 
-        instructions[3].rd == rs && 
-        control.EnableRegisterFile) {
-        return true;
-    }
-    
-    return false;
-}
 
-bool PipelinedSimulator::NeedsForwardingB(uint8_t rs) {
-    return NeedsForwardingA(rs);
-}
-
-uint32_t PipelinedSimulator::GetForwardedValue(uint8_t rs) {
-    // EX/MEM stage has higher priority (newer value)
-    if (!IsNullInstruction(instructions[2]) && 
-        instructions[2].rd == rs && 
-        control.EnableRegisterFile) {
-        return inter_stage.RZ; // ALU result from EX stage
-    }
-    
-    // MEM/WB stage
-    if (!IsNullInstruction(instructions[3]) && 
-        instructions[3].rd == rs && 
-        control.EnableRegisterFile) {
-        return buffer.RY; // Value to be written back
-    }
-    
-    // Should not reach here if called properly
-    return 0;
-}
-
-void PipelinedSimulator::ForwardData() {
-    if (!hasDataForwarding) return;
-    
-    Instruction decode_instruction = instructions[1];
-    
-    // Only check for data forwarding if we have a valid instruction in decode
-    if (IsNullInstruction(decode_instruction)) return;
-    
-    // For RA (rs1)
-    if (control.MuxA == 0b1 && NeedsForwardingA(decode_instruction.rs1)) {
-        inter_stage.RA = GetForwardedValue(decode_instruction.rs1);
-    }
-    
-    // For RB (rs2)
-    if (control.MuxB == 0b1 && NeedsForwardingB(decode_instruction.rs2)) {
-        inter_stage.RB = GetForwardedValue(decode_instruction.rs2);
-    }
-    
-    // For store instructions (forwarding to RM)
-    if (control.MuxB == 0b11 && NeedsForwardingB(decode_instruction.rs2)) {
-        inter_stage.RM = GetForwardedValue(decode_instruction.rs2);
-    }
-}
 
 bool Debug::debug = true;
 int Debug::debug_count = 0;

@@ -105,8 +105,8 @@ class PipelinedSimulator {
         ControlCircuit control;
         ProcessorMemoryInterface memory;
         IAG iag;
-
-        Instruction instructions[PIPELINE_STAGES]; // 0 - Fetch, ..., 4 - Writeback
+        
+        Instruction instructions[PIPELINE_STAGES]; 
 
         PipelinedSimulator(const string assembly_file, const string machine_file) : assembler(assembly_file, machine_file) {
             assembler.Assemble();
