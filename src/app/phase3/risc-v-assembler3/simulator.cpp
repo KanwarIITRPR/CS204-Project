@@ -243,6 +243,10 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     }
     iag.UpdateFlush();
     // else if (!instructions[0].is_stalled) finished = true;
+
+    for (auto pair: memory.data_map) {
+        cout << hex << "0x" << pair.first << " ~ " << "0x" << pair.second << dec << endl;
+    }
     
     control.IncrementClock();
     if (hdu.cycles_to_stall) {
@@ -319,14 +323,7 @@ void PipelinedSimulator::Flush() {
 }
 
 void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
-void PipelinedSimulator::SetKnob2(bool set_value) { 
-    hasDataForwarding = set_value;
-    if (set_value) {
-        Debug::log("Data forwarding enabled");
-    } else {
-        Debug::log("Data forwarding disabled");
-    }
-}
+void PipelinedSimulator::SetKnob2(bool set_value) { hasDataForwarding = set_value; }
 void PipelinedSimulator::SetKnob3(bool set_value) { printRegisterFile = set_value; }
 void PipelinedSimulator::SetKnob4(bool set_value) { printPipelineRegisters = set_value; }
 void PipelinedSimulator::SetKnob5(uint32_t instruction_index) {
@@ -375,45 +372,6 @@ void PipelinedSimulator::Fetch() {
 void PipelinedSimulator::Decode() {
     Instruction decode_instruction = instructions[1];
 
-    uint32_t rs1 = decode_instruction.rs1;
-    uint32_t rs2 = decode_instruction.rs2;
-    
-    uint32_t rs1_value = register_file[rs1];
-    uint32_t rs2_value = register_file[rs2];
-    
-    // Apply data forwarding if enabled
-    if (hasDataForwarding) {
-        // Check for forwarding to rs1
-        int forwardA = forwarding_unit.CheckForwardA(rs1);
-        switch (forwardA) {
-            case 1: // Forward from EX/MEM (RZ)
-                rs1_value = inter_stage.RZ;
-                break;
-            case 2: // Forward from MEM/WB (RY)
-                rs1_value = buffer.RY;
-                break;
-            default:
-                break;
-        }
-        
-        // Check for forwarding to rs2
-        int forwardB = forwarding_unit.CheckForwardB(rs2);
-        switch (forwardB) {
-            case 1: // Forward from EX/MEM (RZ)
-                rs2_value = inter_stage.RZ;
-                break;
-            case 2: // Forward from MEM/WB (RY)
-                rs2_value = buffer.RY;
-                break;
-            default:
-
-                break;
-        }
-    }
-
-    // added till above for forwarding
-
-
     switch (control.MuxA) {
         case 0b1:
             inter_stage.RA = register_file[decode_instruction.rs1];
@@ -459,28 +417,6 @@ void PipelinedSimulator::Decode() {
 }
 
 void PipelinedSimulator::Execute() {
-    Instruction execute_instruction = instructions[2];
-    
-    // Additional data forwarding for store instructions
-    if (hasDataForwarding && execute_instruction.format == Format::S) {
-        uint32_t rs2 = execute_instruction.rs2;
-        
-        // Check if we need to forward the value to be stored
-        int forwardM = forwarding_unit.CheckForwardB(rs2);
-        switch (forwardM) {
-            case 1: // Forward from EX/MEM (RZ)
-                inter_stage.RM = inter_stage.RZ;
-                break;
-            case 2: // Forward from MEM/WB (RY)
-                inter_stage.RM = buffer.RY;
-                break;
-            default:
-                break;
-        }
-    }
-    // Apply data forwarding if enabled
-
-
     switch (control.ALU) {
         case 0b1:
             inter_stage.RZ = buffer.RA + buffer.RB; break;
@@ -654,7 +590,6 @@ void PipelinedSimulator::PrintRegisterFile() {
     cout << "---------------------------------------------------------------------------" << endl;
 }
 
-
 void PipelinedSimulator::PrintPipelineRegisters() {
     cout << "\n------- Pipeline Registers -------\n";
     cout << "Clock Cycles: " << dec << control.CyclesExecuted() << endl;
@@ -777,4 +712,3 @@ int main(int argC, char** argV) {
     sim.fin.close();
     CloseFileStreams();
 }
-

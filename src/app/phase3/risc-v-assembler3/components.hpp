@@ -219,6 +219,11 @@ class PipelinedSimulator {
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
 
+        bool CheckDataHazard();
+        void ForwardData();
+        bool NeedsForwardingA(uint8_t rs);
+        bool NeedsForwardingB(uint8_t rs);
+        uint32_t GetForwardedValue(uint8_t rs);
     
     public:
         ifstream fin;
@@ -262,7 +267,7 @@ class PipelinedSimulator {
 
         InterStageRegisters inter_stage;
         InterStageRegisters buffer;
-        ForwardingUnit forwarding_unit;   //added for data forwarding
+
         Assembler assembler;
         ForwardingUnit forwarding_unit;
         ControlCircuit control;
@@ -290,4 +295,4 @@ class PipelinedSimulator {
         friend class ControlCircuit;
 };
 
-#endif  
+#endif
