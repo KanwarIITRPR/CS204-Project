@@ -2,7 +2,19 @@
 
 
 
+
+
+
+
 n: .byte 5
+
+
+
+
+
+
+
+
 
 
 
@@ -14,7 +26,15 @@ n: .byte 5
 
 
 
+
+
+
+
 main:
+
+
+
+
 
 
 
@@ -22,7 +42,15 @@ main:
 
 
 
+
+
+
+
     lui x11 0x10000
+
+
+
+
 
 
 
@@ -34,7 +62,19 @@ main:
 
 
 
+
+
+
+
+
+
+
+
     # Initializing the value of x17 to display -1 if error was found
+
+
+
+
 
 
 
@@ -46,7 +86,19 @@ main:
 
 
 
+
+
+
+
+
+
+
+
     jal x1 recursive_factorial
+
+
+
+
 
 
 
@@ -58,7 +110,19 @@ main:
 
 
 
+
+
+
+
+
+
+
+
 # This is a wrapper function for run_factorial to initialize necessary variables to avoid re-assigning constant variables
+
+
+
+
 
 
 
@@ -66,7 +130,15 @@ main:
 
 
 
+
+
+
+
 recursive_factorial:
+
+
+
+
 
 
 
@@ -74,7 +146,15 @@ recursive_factorial:
 
 
 
+
+
+
+
     addi x18 x0 1
+
+
+
+
 
 
 
@@ -86,7 +166,19 @@ recursive_factorial:
 
 
 
+
+
+
+
+
+
+
+
 # Function Result is stored in x17
+
+
+
+
 
 
 
@@ -94,7 +186,15 @@ recursive_factorial:
 
 
 
+
+
+
+
 # Temporaries used in the function are the comparator for n (1 stored in x18)
+
+
+
+
 
 
 
@@ -102,7 +202,15 @@ run_factorial:
 
 
 
+
+
+
+
     # Storing the function's current state
+
+
+
+
 
 
 
@@ -110,7 +218,15 @@ run_factorial:
 
 
 
+
+
+
+
     sw x1 1(x2)
+
+
+
+
 
 
 
@@ -122,7 +238,19 @@ run_factorial:
 
 
 
+
+
+
+
+
+
+
+
     # Checking for errors and base case
+
+
+
+
 
 
 
@@ -130,7 +258,15 @@ run_factorial:
 
 
 
+
+
+
+
     blt x11 x0 logical_error
+
+
+
+
 
 
 
@@ -138,7 +274,15 @@ run_factorial:
 
 
 
+
+
+
+
     
+
+
+
+
 
 
 
@@ -146,7 +290,15 @@ run_factorial:
 
 
 
+
+
+
+
     addi x11 x11 -1
+
+
+
+
 
 
 
@@ -158,7 +310,19 @@ run_factorial:
 
 
 
+
+
+
+
+
+
+
+
     # Retrieving the current function's variables before running any other command in the current function
+
+
+
+
 
 
 
@@ -166,7 +330,15 @@ run_factorial:
 
 
 
+
+
+
+
     lw x1 1(x2)
+
+
+
+
 
 
 
@@ -178,11 +350,27 @@ run_factorial:
 
 
 
+
+
+
+
+
+
+
+
     # Running final return operation
 
 
 
+
+
+
+
     mul x17 x11 x17
+
+
+
+
 
 
 
@@ -194,7 +382,19 @@ run_factorial:
 
 
 
+
+
+
+
+
+
+
+
     base_case:
+
+
+
+
 
 
 
@@ -206,11 +406,27 @@ run_factorial:
 
 
 
+
+
+
+
+
+
+
+
     exit_recursion:
 
 
 
+
+
+
+
         jalr x0 x1 0
+
+
+
+
 
 
 

@@ -399,6 +399,7 @@ void PipelinedSimulator::Decode() {
                 rs2_value = buffer.RY;
                 break;
             default:
+
                 break;
         }
     }
@@ -695,6 +696,7 @@ void PipelinedSimulator::PrintInstructionInfo(Instruction instruction) {
 
 
 
+
 bool Debug::debug = true;
 int Debug::debug_count = 0;
 
@@ -716,3 +718,4 @@ int main(int argC, char** argV) {
 
     sim.fin.close();
 }
+
