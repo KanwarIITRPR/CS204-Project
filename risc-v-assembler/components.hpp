@@ -46,6 +46,7 @@ class Debug {
 
 struct MemoryRegisters { uint32_t MAR, MDR; };
 
+class PipelinedSimulator;
 class IAG {
     private:
         
@@ -55,9 +56,11 @@ class IAG {
         void UpdateBuffer();
 
         void UpdatePC();
+        // void UpdatePC_Memory();
+
+        PipelinedSimulator* simulator;
 };
 
-class PipelinedSimulator;
 class ControlCircuit {
     public:
         void IncrementClock() { clock += 1; }
@@ -68,6 +71,7 @@ class ControlCircuit {
         void UpdateExecuteSignals();
         void UpdateMemorySignals();
         void UpdateWritebackSignals();
+        void UpdateIAGSignals();
 
         uint8_t MuxA = 0;
         uint8_t MuxB = 0;
@@ -170,7 +174,6 @@ class PipelinedSimulator {
 
         
         InterStageRegisters inter_stage;
-        InterStageRegisters buffer;
         
         // uint32_t MAR = 0x00000000;
         // uint32_t MDR = 0x00000000;
@@ -236,6 +239,10 @@ class PipelinedSimulator {
         void SetKnob6(bool set_value);
         void SetKnob7(bool set_value);
 
+        void PrintInstructionInfo(Instruction instruction);
+
+        InterStageRegisters buffer;
+
         Assembler assembler;
         ControlCircuit control;
         ProcessorMemoryInterface memory;
@@ -249,9 +256,10 @@ class PipelinedSimulator {
         PipelinedSimulator(const string assembly_file, const string machine_file) : assembler(assembly_file, machine_file) {
             assembler.Assemble();
             fin.open(machine_file);
-
+            
             control.simulator = this;
             hdu.simulator = this;
+            iag.simulator = this;
 
             InitializeRegisters();
             InitialParse();

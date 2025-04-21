@@ -49,24 +49,16 @@ void ControlCircuit::UpdateExecuteSignals() {
 void ControlCircuit::UpdateMemorySignals() {
     string command = simulator -> instructions[3].literal.substr(0, simulator -> instructions[3].literal.find(" "));
 
-    if (simulator -> instructions[3].stage == Stage::FETCH) MuxMA = 0b1;
-    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || simulator -> instructions[3].format == Format::S) MuxMA = 0b10;
+    if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || simulator -> instructions[3].format == Format::S) MuxMA = 0b1;
     else MuxMA = 0b0;
 
-    if (simulator -> instructions[3].stage == Stage::FETCH || command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxMD = 0b1;
-    else if (simulator -> instructions[3].format == Format::S) MuxMD = 0b10;
+    if (command == "lb") MuxMD = 0b1;
+    else if (command == "lh") MuxMD = 0b10;
+    else if (command == "lw") MuxMD = 0b11;
+    else if (command == "sb") MuxMD = 0b100;
+    else if (command == "sh") MuxMD = 0b101;
+    else if (command == "sw") MuxMD = 0b110;
     else MuxMD = 0b0;
-    
-    if (simulator -> instructions[3].stage == Stage::FETCH) DemuxMD = 0b1;
-    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") DemuxMD = 0b10;
-    else DemuxMD = 0b0;
-
-    if (command == "jalr") MuxPC = 0b1; // Select RZ
-    else MuxPC = 0b0; // Select INSTRUCTION_SIZE
-    
-    if (command == "jal") MuxINC = 0b1; // Select immediate
-    else if (command == "beq" || command == "bne" || command == "blt" || command == "bge") MuxINC = MuxINC; // Already calculated
-    else MuxINC = 0b0; // Select 4
 
     if (simulator -> instructions[3].format == Format::R) MuxY = 0b1; // Select RZ
     else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxY = 0b10; // Select MDR
@@ -84,3 +76,21 @@ void ControlCircuit::UpdateWritebackSignals() {
     else if (simulator -> instructions[4].format == Format::I || simulator -> instructions[4].format == Format::U) EnableRegisterFile = 0b1; // Select RZ
     else MuxY = 0b0;
 }
+
+void ControlCircuit::UpdateIAGSignals() {
+    if (simulator -> instructions[2].literal.substr(0, simulator -> instructions[2].literal.find(" ")) == "jalr") { MuxPC = 0b1; Debug::log("jalr in execute selected"); }
+    else if (simulator -> instructions[0].format == Format::SB || simulator -> instructions[0].format == Format::UJ) {
+        Debug::log("Entered PC Change: " + simulator -> instructions[0].literal);
+        if (simulator -> btb.isUnconditionalBranch(simulator -> instructions[0].address)) { MuxPC = 0b10; Debug::log("Unconditional selected: " + to_string(MuxPC)); }
+        else if (simulator -> pht.getPrediction(simulator -> instructions[0].address)) { MuxPC = 0b10; Debug::log("Conditional predicted taken"); }
+        else { MuxPC = 0b0; Debug::log("Conditional predicted not-taken"); }
+    } else { MuxPC = 0b0; Debug::log("Standard PC increment selected"); }
+}
+// Debug::log("Command in Memory: \"" + command + "\", MuxPC: " + to_string(MuxPC));
+
+// if (command == "jalr") MuxPC = 0b1; // Select RZ
+// else MuxPC = 0b0; // Select INSTRUCTION_SIZE
+
+// if (command == "jal") MuxINC = 0b1; // Select immediate
+// else if (command == "beq" || command == "bne" || command == "blt" || command == "bge") MuxINC = MuxINC; // Already calculated
+// else MuxINC = 0b0; // Select 4
