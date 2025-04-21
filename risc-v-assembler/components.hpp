@@ -56,6 +56,7 @@ class IAG {
         void UpdateBuffer();
 
         void UpdatePC();
+        void UpdateFlush();
         // void UpdatePC_Memory();
 
         PipelinedSimulator* simulator;
@@ -196,6 +197,7 @@ class PipelinedSimulator {
         bool printRegisterFile = true;
         bool printPipelineRegisters = true;
         bool printInstructions = true;
+        bool printFetchedInstructionDetails = true;
         bool previouslyPrintingPipelineRegisters = true;
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
@@ -230,6 +232,8 @@ class PipelinedSimulator {
 
         void ShiftInstructionsStage();
         void UpdateBufferRegisters();
+        void Flush();
+        bool recently_flushed = false;
 
         void SetKnob1(bool set_value);
         void SetKnob2(bool set_value);
@@ -238,6 +242,7 @@ class PipelinedSimulator {
         void SetKnob5(uint32_t instruction_index);
         void SetKnob6(bool set_value);
         void SetKnob7(bool set_value);
+        void SetKnob8(bool set_value);
 
         void PrintInstructionInfo(Instruction instruction);
 

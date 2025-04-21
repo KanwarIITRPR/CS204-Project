@@ -11,9 +11,20 @@ void IAG::UpdateBuffer() { buffer_PC = PC; }
 //         break;
 //     default: break;
 // }
+
+void IAG::UpdateFlush() {
+    if (!simulator -> recently_flushed) return;
+
+    Debug::log("PC: " + to_string(PC) + ", Caller Address: " + to_string(simulator -> instructions[2].address) + ", Result: " + to_string(simulator -> instructions[2].address + INSTRUCTION_SIZE));
+    simulator -> Flush();
+    PC = simulator -> instructions[2].address + INSTRUCTION_SIZE;
+    simulator -> recently_flushed = false;
+}
+
 void IAG::UpdatePC() {
     // Debug::log("MuxPC: " + to_string(simulator -> control.MuxPC));
     // Debug::log("Control Bit: " + to_string(control_bit));
+
     switch (simulator -> control.MuxPC) {
         case 0b0: // General Fetch
             PC = buffer_PC + INSTRUCTION_SIZE;

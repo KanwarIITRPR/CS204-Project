@@ -213,6 +213,7 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
 void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     ShiftInstructionsStage();
     control.UpdateControlSignals();
+    Debug::log("MuxY: " + to_string(control.MuxY));
 
     if (!IsNullInstruction(instructions[4]) && !instructions[4].is_stalled) {
         Writeback();
@@ -234,11 +235,13 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
         instructions[1].stage = Stage::EXECUTE;
     }
     
-    if ((!finished && !IsNullInstruction(instructions[0]) && !instructions[0].is_stalled) || (!started && IsNullInstruction(instructions[0]))) {
+    if ((!finished && !instructions[0].is_stalled) || (!started && IsNullInstruction(instructions[0]))) {
+        instructions[0].stage = Stage::FETCH;
         Fetch();
         instructions[0].stage = Stage::DECODE;
         started = true;
     }
+    iag.UpdateFlush();
     // else if (!instructions[0].is_stalled) finished = true;
     
     control.IncrementClock();
@@ -250,6 +253,8 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
             }
         }
     }
+
+    if (printFetchedInstructionDetails) PrintInstructionInfo(instructions[0]);
     if (printInstructions) PrintInstructions();
     if (specified_instruction) PrintSpecifiedPipelineRegisters();
     else if (printPipelineRegisters) PrintPipelineRegisters();
@@ -282,6 +287,18 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     }
 }
 
+void PipelinedSimulator::Flush() {
+    instructions[0] = NULL_INSTRUCTION;
+    instructions[1] = NULL_INSTRUCTION;
+
+    inter_stage.RA = buffer.RA = 0;
+    inter_stage.RB = buffer.RB = 0;
+    inter_stage.RM = buffer.RM = 0;
+
+    IR = 0;
+    Debug::log("Flushed");
+}
+
 void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
 void PipelinedSimulator::SetKnob2(bool set_value) { hasDataForwarding = set_value; }
 void PipelinedSimulator::SetKnob3(bool set_value) { printRegisterFile = set_value; }
@@ -296,6 +313,7 @@ void PipelinedSimulator::SetKnob5(uint32_t instruction_index) {
 }
 void PipelinedSimulator::SetKnob6(bool set_value) { hasPipeline = set_value; }
 void PipelinedSimulator::SetKnob7(bool set_value) { printInstructions = set_value; }
+void PipelinedSimulator::SetKnob8(bool set_value) { printFetchedInstructionDetails = set_value; }
 
 void PipelinedSimulator::UpdateBufferRegisters() {
     iag.UpdateBuffer();
@@ -320,9 +338,10 @@ void PipelinedSimulator::Fetch() {
     instructions[0] = memory.GetInstruction();
     IR = memory.instruction_memory.MDR;
 
-    PrintInstructionInfo(instructions[0]);
-    control.UpdateIAGSignals();
-    iag.UpdatePC();
+    if (!IsNullInstruction(instructions[0])) {
+        control.UpdateIAGSignals();
+        iag.UpdatePC();
+    }
 
     Reset_x0();
 }
@@ -353,7 +372,6 @@ void PipelinedSimulator::Decode() {
             break;
         case 0b11:
             inter_stage.RB = decode_instruction.immediate;
-            inter_stage.RM = register_file[decode_instruction.rs2];
             break;
         case 0b100:
             inter_stage.RB = iag.INSTRUCTION_SIZE * BYTE_SIZE - immediate_bits.at(Format::U);
@@ -392,15 +410,39 @@ void PipelinedSimulator::Execute() {
         case 0b1100:
             inter_stage.RZ = ((int32_t) buffer.RA < (int32_t) buffer.RB) ? 1 : 0; break;
         case 0b1101:
-            control.MuxINC = (int32_t) buffer.RA == (int32_t) buffer.RB; break;
+            control.MuxINC = (int32_t) buffer.RA == (int32_t) buffer.RB;
+            pht.updatePrediction(instructions[2].address, control.MuxINC);
+            Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            if (!control.MuxINC) recently_flushed = true;
+            break;
         case 0b1110:
-            control.MuxINC = (int32_t) buffer.RA != (int32_t) buffer.RB; break;
+            control.MuxINC = (int32_t) buffer.RA != (int32_t) buffer.RB;
+            pht.updatePrediction(instructions[2].address, control.MuxINC);
+            Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            if (!control.MuxINC) recently_flushed = true;
+            break;
         case 0b1111:
-            control.MuxINC = (int32_t) buffer.RA < (int32_t) buffer.RB; break;
+            control.MuxINC = (int32_t) buffer.RA < (int32_t) buffer.RB;
+            pht.updatePrediction(instructions[2].address, control.MuxINC);
+            Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            if (!control.MuxINC) recently_flushed = true;
+            break;
         case 0b10000:
-            control.MuxINC = (int32_t) buffer.RA >= (int32_t) buffer.RB; break;
+            control.MuxINC = (int32_t) buffer.RA >= (int32_t) buffer.RB;
+            pht.updatePrediction(instructions[2].address, control.MuxINC);
+            Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            if (!control.MuxINC) recently_flushed = true;
+            break;
         case 0b10001:
             inter_stage.RZ = buffer.RA + (buffer.RB << (iag.INSTRUCTION_SIZE * BYTE_SIZE - immediate_bits.at(Format::U)));
+            break;
+        case 0b10010:
+            inter_stage.RZ = buffer.RA + buffer.RB;
+            if (inter_stage.RZ != instructions[2].address + iag.INSTRUCTION_SIZE) Flush();
+            break;
+        case 0b10011:
+            inter_stage.RZ = buffer.RA + buffer.RB;
+            inter_stage.RM = register_file[instructions[2].rs2];
             break;
         default: break;
     }
@@ -446,15 +488,19 @@ void PipelinedSimulator::MemoryAccess() {
 
     // iag.UpdatePC();
 
+    Debug::log("Control in MuxY: " + to_string(control.MuxY));
     switch (control.MuxY) {
         case 0b1:
+            Debug::log("Standard Pass, RZ: " + to_string(buffer.RZ));
             inter_stage.RY = buffer.RZ;
             break;
         case 0b10:
+            Debug::log("Retrieve from memory, RZ: " + to_string(buffer.RZ));
             inter_stage.RY = memory.data_memory.MDR;
             break;
         case 0b11:
-            inter_stage.RY = iag.buffer_PC + iag.INSTRUCTION_SIZE;
+            Debug::log("Next Address, RZ: " + to_string(buffer.RZ));
+            inter_stage.RY = instructions[3].address + iag.INSTRUCTION_SIZE;
             break;
         default: break;
     }
@@ -507,7 +553,7 @@ void PipelinedSimulator::PrintRegisterFile() {
 
 void PipelinedSimulator::PrintPipelineRegisters() {
     cout << "\n------- Pipeline Registers -------\n";
-    cout << "Clock Cycles: " << control.CyclesExecuted() << endl;
+    cout << "Clock Cycles: " << dec << control.CyclesExecuted() << endl;
 
     cout << "\nInter-Stage Registers\n" << hex;
     cout << "> RA: 0x" << setw(8) << setfill('0') << inter_stage.RA << endl;
@@ -533,7 +579,7 @@ void PipelinedSimulator::PrintSpecifiedPipelineRegisters() {
     if (IsNullInstruction(highlighted_instruction)) return;
 
     cout << "\n---- Specified Pipeline Registers ----\n";
-    cout << "Clock Cycles: " << control.CyclesExecuted() << endl;
+    cout << "Clock Cycles: " << dec << control.CyclesExecuted() << endl;
     cout << "Specified Instruction: " << highlighted_instruction.literal << endl;
     cout << "Current Stage: " << GetStageName(highlighted_instruction.stage) << endl;
 
@@ -575,23 +621,25 @@ void PipelinedSimulator::PrintInstructions() {
 }
 
 void PipelinedSimulator::PrintInstructionInfo(Instruction instruction) {
-    cout << "\n---- Instruction " << instruction.literal << " ----" << endl;
-    cout << "> Address: " << setw(8) << setfill('0') << hex << instruction.address << endl;
+    if (IsNullInstruction(instruction)) cout << "\n---- NULL Instruction ----" << endl;
+    else cout << "\n---- " << instruction.literal << " ----" << endl;
+    cout << "> Address: 0x" << setw(8) << setfill('0') << hex << instruction.address << endl;
     cout << "> Format: " << GetFormatName(instruction.format) << endl;
     cout << "> Stage: " << GetStageName(instruction.stage) << endl;
     cout << "> Is Stalled?: " << instruction.is_stalled << endl;
 
-    cout << "\n> Machine Code: " << setw(8) << setfill('0') << hex << instruction.machine_code << endl;
-    cout << "> Opcode: " << DecimalToBinary(instruction.opcode, OPCODE_LENGTH) << endl;
-    cout << "> Funct3: " << DecimalToBinary(instruction.funct3, FUNCT3_LENGTH) << endl;
-    cout << "> Funct7: " << DecimalToBinary(instruction.funct7, FUNCT7_LENGTH) << endl;
-    cout << "> Rd: " << DecimalToBinary(instruction.rd, REGISTER_LENGTH) << endl;
-    cout << "> Rs1: " << DecimalToBinary(instruction.rs1, REGISTER_LENGTH) << endl;
-    cout << "> Rs2: " << DecimalToBinary(instruction.rs2, REGISTER_LENGTH) << endl;
-    if (instruction.format != Format::R) cout << "> Immediate: " << DecimalToBinary(instruction.immediate, immediate_bits.at(instruction.format)) << endl;
+    cout << "\n> Machine Code: 0x" << setw(8) << setfill('0') << hex << instruction.machine_code << endl;
+    cout << "> Opcode: 0b" << DecimalToBinary(instruction.opcode, OPCODE_LENGTH) << endl;
+    cout << "> Funct3: 0b" << DecimalToBinary(instruction.funct3, FUNCT3_LENGTH) << endl;
+    cout << "> Funct7: 0b" << DecimalToBinary(instruction.funct7, FUNCT7_LENGTH) << endl;
+    cout << "> Rd: 0b" << DecimalToBinary(instruction.rd, REGISTER_LENGTH) << endl;
+    cout << "> Rs1: 0b" << DecimalToBinary(instruction.rs1, REGISTER_LENGTH) << endl;
+    cout << "> Rs2: 0b" << DecimalToBinary(instruction.rs2, REGISTER_LENGTH) << endl;
+    if (instruction.format != Format::R) cout << "> Immediate: 0b" << DecimalToBinary(instruction.immediate, immediate_bits.at(instruction.format)) << endl;
 
-    cout << "----------------------";
-    for (size_t i = 0; i < instruction.literal.length(); i++) cout << "-";
+    cout << "----------";
+    if (IsNullInstruction(instruction)) cout << "----------------";
+    else for (size_t i = 0; i < instruction.literal.length(); i++) cout << "-";
     cout << endl;
 }
 
@@ -676,11 +724,18 @@ int main(int argC, char** argV) {
     int run_time = (argC > 1) ? GetDecimalNumber(argV[1]) : 2;
     if (argC > 2) (GetDecimalNumber(argV[2]) != 0) ? Debug::set(1) : Debug::set(0);
     PipelinedSimulator sim(std_input_file, std_output_file);
-    // sim.SetKnob5(2);
+    sim.SetKnob3((argC > 3) ? GetDecimalNumber(argV[3]) : 1); // Register File
+    sim.SetKnob4((argC > 4) ? GetDecimalNumber(argV[4]) : 1); // Pipeline Registers
+    sim.SetKnob5((argC > 5) ? GetDecimalNumber(argV[5]) : 1); // Specific Instruction
+    sim.SetKnob7((argC > 6) ? GetDecimalNumber(argV[6]) : 1); // Instrctions in Pipeline
+    sim.SetKnob8((argC > 7) ? GetDecimalNumber(argV[7]) : 1); // Fetched Instruction Details
 
     // sim.Run(argV, false);
     // sim.Step(argV, false);
-    for (size_t i = 0; i < run_time; i++) sim.RunInstruction();
+    for (size_t i = 0; i < run_time; i++) {
+        sim.RunInstruction();
+        cout << "======================================================" << endl;
+    }
 
     sim.fin.close();
 }
