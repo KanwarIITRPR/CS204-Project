@@ -2,6 +2,7 @@
 #include <bits/stdc++.h>
 #include <algorithm>
 #include "utils.cpp"
+#include "operations.hpp"
 using namespace std;
 
 #define TEXT_ADDRESS 0x00000000
@@ -9,14 +10,14 @@ using namespace std;
 #define STACK_ADDRESS 0x7FFFFFDC
 #define HEAP_ADDRESS 0x10008000
 
-enum Format {
-    R,
-    I,
-    S,
-    SB,
-    U,
-    UJ
-};
+// enum Format {
+//     R,
+//     I,
+//     S,
+//     SB,
+//     U,
+//     UJ
+// };
 
 map<string, Format> instruction_format_mapping;
 map<string, string> r_opcode,i_opcode, s_opcode, sb_opcode, u_opcode, uj_opcode;

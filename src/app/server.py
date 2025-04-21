@@ -18,6 +18,7 @@ REGISTER_PATH = os.path.join(BASE_DIR, "phase1", "example", "preregister.txt")
 
 @app.route("/registers", methods=["GET"])
 def get_registers():
+    print(f"Looking for register file at: {REGISTER_PATH}")
     if not os.path.exists(REGISTER_PATH):
         logging.warning("Register file not found at: %s", REGISTER_PATH)
         return jsonify({"error": "preregister.txt not found"}), 404
@@ -25,7 +26,10 @@ def get_registers():
     registers = {}
     try:
         with open(REGISTER_PATH, "r") as file:
-            lines = file.readlines()[9:]  # Skip first 9 lines
+            lines = file.readlines()
+            print(f"Read {len(lines)} lines from register file")
+            lines = lines[9:]  # Skip first 9 lines
+            print(f"{len(lines)} lines after skipping header")
 
         for line in lines:
             parts = line.strip().split()
@@ -45,16 +49,31 @@ def get_registers():
         return jsonify({"registers": registers})
     except Exception as e:
         logging.exception("Error reading register file:")
-        return jsonify({"error": "Failed to read register file"}), 500
+        return jsonify({"error": f"Failed to read register file: {str(e)}"}), 500
 
 
-@app.route('/read-log')
+@app.route('/read-log', methods=["POST"])
 def read_log():
-    if not os.path.exists(LOG_PATH):
-        return jsonify({"error": "log.txt not found"})
-    with open(LOG_PATH, "r") as f:
-        lines = f.readlines()
-    return jsonify({"lines": lines})
+    try:
+        data = request.get_json()
+        knobs = data.get("knobs", [])
+        pipeline_enabled = knobs[0] == 1 if len(knobs) > 0 else False
+
+        phase_folder = "phase3" if pipeline_enabled else "phase1"
+        example_folder = "example3" if pipeline_enabled else "example"
+        log_path = os.path.join(BASE_DIR, phase_folder, example_folder, "log.txt")
+
+        if not os.path.exists(log_path):
+            return jsonify({"error": f"log.txt not found in {phase_folder}/{example_folder}"}), 404
+
+        with open(log_path, "r") as f:
+            lines = f.readlines()
+
+        return jsonify({"lines": lines})
+    except Exception as e:
+        print("Error reading log:", e)
+        return jsonify({"error": str(e)}), 500
+
 
 
     
@@ -63,41 +82,45 @@ def assemble():
     try:
         data = request.get_json()
         code = data.get("code", "").strip()
-        # print("data: ", data)
-        # print("code: ", code)
+        knobs = data.get("knobs", [])
+        pipeline_enabled = knobs[0] == 1 if len(knobs) > 0 else False
+
         if not code:
             return jsonify({"error": "No assembly code received"}), 400
 
-        # Save the received code to input.asm
-        with open(INPUT_PATH, "w") as f:
+        # Updated folder names
+        phase_folder = "phase3" if pipeline_enabled else "phase1"
+        example_folder = "example3" if pipeline_enabled else "example"
+        assembler_folder = "risc-v-assembler3" if pipeline_enabled else "risc-v-assembler"
+
+        assembler_path = os.path.join(BASE_DIR, phase_folder, assembler_folder, "a.exe")
+        input_path = os.path.join(BASE_DIR, phase_folder, example_folder, "input.asm")
+        output_path = os.path.join(BASE_DIR, phase_folder, example_folder, "output.mc")
+
+        with open(input_path, "w") as f:
             f.write(code)
 
-        # Run the assembler
         result = subprocess.run(
-            [ASSEMBLER_PATH, INPUT_PATH, OUTPUT_PATH], 
-            capture_output=True, 
+            [assembler_path, input_path, output_path],
+            capture_output=True,
             text=True
         )
 
         if result.returncode != 0:
             return jsonify({"error": result.stderr}), 500
 
-        # Read and process the machine code output
-        with open(OUTPUT_PATH, "r") as f:
-            machine_code_lines = f.readlines()  
+        with open(output_path, "r") as f:
+            machine_code_lines = f.readlines()
 
         assembled_code = {}
         memory_data = {}
-        
-        is_text_section = False 
-        is_data_section = False  
-        
+        is_text_section = False
+        is_data_section = False
+
         for index, line in enumerate(machine_code_lines):
-            # print("line: ", line)
-            line = line.split("#")[0].strip()  
+            line = line.split("#")[0].strip()
             parts = line.split()
-            # print("parts: ", parts)
-            # Detect section markers
+
             if "END-OF-TEXT-SEGMENT" in line:
                 is_text_section = False
             elif ".text" in line:
@@ -109,34 +132,29 @@ def assemble():
                 is_text_section = False
                 continue
             elif "END-OF-DATA-SEGMENT" in line:
-                continue  # Skip .data section
-            # print("is_text_section: ", is_text_section)
-            # print("is_data_section: ", is_data_section)
-            # Process only text section
+                continue
+
             if is_text_section and len(parts) >= 2:
                 pc, instr = parts[0], parts[1]
                 basic_instr = " ".join(parts[2:]) if len(parts) > 2 else ""
                 pc = pc.replace("0x", "")
                 instr = instr.replace("0x", "")
                 assembled_code[pc] = {"machine_code": instr, "basic_code": basic_instr}
-        
                 memory[pc] = [instr[i: i + 2].upper() for i in range(0, len(instr), 2)]
 
-            # Process only data section
             if is_data_section and len(parts) >= 2:
                 address, data = parts[0], parts[1]
                 address = address.replace("0x", "")
                 data = data.replace("0x", "")
-                # print("address: ", address)
-                # print("data: ", data)
                 memory_data[address] = data
-            # print("memory_data: ", memory_data)
 
-        return jsonify([{"machine_code": assembled_code}, {"memory_data": memory_data}]) 
+        return jsonify([{"machine_code": assembled_code}, {"memory_data": memory_data}])
 
     except Exception as e:
         print("Error: ", e)
         return jsonify({"error": str(e)}), 500
+
+
 
 @app.route("/memory", methods=["GET"])
 def get_memory():
