@@ -11,9 +11,24 @@ void IAG::UpdateBuffer() { buffer_PC = PC; }
 //         break;
 //     default: break;
 // }
+
+void IAG::UpdateFlush() {
+    if (!simulator -> recently_flushed) return;
+
+    Debug::log("PC: " + to_string(PC) + ", Caller Address: " + to_string(simulator -> instructions[2].address) + ", Result: " + to_string(simulator -> instructions[2].address + INSTRUCTION_SIZE));
+    simulator -> Flush();
+    if (simulator -> return_jump) {
+        PC = simulator -> inter_stage.RZ;
+        simulator -> return_jump = false;
+    } else if (simulator -> actual_outcome) PC = simulator -> btb.getTargetAddress(simulator -> instructions[2].address);
+    else PC = simulator -> instructions[2].address + INSTRUCTION_SIZE;
+    simulator -> recently_flushed = false;
+}
+
 void IAG::UpdatePC() {
     // Debug::log("MuxPC: " + to_string(simulator -> control.MuxPC));
     // Debug::log("Control Bit: " + to_string(control_bit));
+
     switch (simulator -> control.MuxPC) {
         case 0b0: // General Fetch
             PC = buffer_PC + INSTRUCTION_SIZE;
@@ -21,7 +36,7 @@ void IAG::UpdatePC() {
             break;
         case 0b1: // Effective Address (jalr)
             PC = simulator -> buffer.RZ;
-            // Debug::log("In jalr");
+            Debug::log("In jalr");
             break;
         case 0b10: // Branches (SB and UJ)
             // Debug::log("Address: " + to_string(simulator -> instructions[0].address));

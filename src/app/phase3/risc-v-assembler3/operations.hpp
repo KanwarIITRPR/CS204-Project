@@ -152,6 +152,7 @@ const map<string, uint8_t> directive_size = {
 bool IsValidOperation(string operation, bool log_error = false);
 bool IsValidDirective(string directive, bool log_error = false);
 bool IsLoadOperation(string operation);
+bool IsLoadOperation(uint8_t operation_code);
 
 Format GetFormat(string operation);
 Format GetFormat(uint8_t operation_code);

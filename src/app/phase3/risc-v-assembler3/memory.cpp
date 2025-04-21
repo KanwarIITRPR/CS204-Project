@@ -5,10 +5,12 @@ Instruction ProcessorMemoryInterface::GetInstruction() {
         error_stream << "Can't access instructions from data memory: " << instruction_memory.MAR << endl;
         return NULL_INSTRUCTION;
     }
+
+    auto instruction_pair = text_map.find(instruction_memory.MAR);
+    if (instruction_pair == text_map.end()) return NULL_INSTRUCTION;
     
-    Instruction instruction = text_map[instruction_memory.MAR];
-    instruction_memory.MDR = instruction.machine_code;
-    return instruction;
+    instruction_memory.MDR = (*instruction_pair).second.machine_code;
+    return (*instruction_pair).second;
 }
 
 void ProcessorMemoryInterface::GetDataValue(int bytes) {

@@ -9,13 +9,37 @@ void ControlCircuit::UpdateControlSignals() {
 
 void ControlCircuit::UpdateDecodeSignals() {
     string command = simulator -> instructions[1].literal.substr(0, simulator -> instructions[1].literal.find(" "));
-    // if (simulator -> hdu.data_dependency_bits.at(simulator -> instructions[1].address) & 0b1)
-    if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::I || simulator -> instructions[1].format == Format::S || simulator -> instructions[1].format == Format::SB) MuxA = 0b1; // Register Value
+
+    bool data_forwarding_A_EX = false, data_forwarding_B_EX = false, data_forwarding_A_MEM = false, data_forwarding_B_MEM = false;
+
+    if (simulator -> hasDataForwarding && !IsNullInstruction(simulator -> instructions[2])) {
+        auto dependent_pair = simulator -> hdu.data_dependency_bits.find(simulator -> instructions[2].address);
+        if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.first &&
+            simulator -> hdu.data_dependency_map.at(simulator -> instructions[2].address).first == simulator -> instructions[1].address) {
+                data_forwarding_A_EX = simulator -> forwarding_unit.CheckForwardA_EX(simulator -> instructions[1].rs1);
+                data_forwarding_B_EX = simulator -> forwarding_unit.CheckForwardB_EX(simulator -> instructions[1].rs2);
+        }
+    }
+
+    if (simulator -> hasDataForwarding && !IsNullInstruction(simulator -> instructions[3])) {
+        auto dependent_pair = simulator -> hdu.data_dependency_bits.find(simulator -> instructions[3].address);
+        if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.second &&
+            simulator -> hdu.data_dependency_map.at(simulator -> instructions[3].address).first == simulator -> instructions[1].address) {
+                data_forwarding_A_MEM = simulator -> forwarding_unit.CheckForwardA_MEM(simulator -> instructions[1].rs1);
+                data_forwarding_B_MEM = simulator -> forwarding_unit.CheckForwardB_MEM(simulator -> instructions[1].rs2);
+        }
+    }
+
+    if (data_forwarding_A_EX) MuxA = 0b100;
+    else if (data_forwarding_A_MEM) MuxA = 0b101;
+    else if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::I || simulator -> instructions[1].format == Format::S || simulator -> instructions[1].format == Format::SB) MuxA = 0b1; // Register Value
     else if (command == "auipc") MuxA = 0b10; // PC
     else if (command == "lui") MuxA = 0b11; // Interchange with immediate
     else MuxA = 0b0;
     
-    if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::SB) MuxB = 0b1; // Register Value
+    if (data_forwarding_B_EX) MuxA = 0b101;
+    else if (data_forwarding_B_MEM) MuxA = 0b110;
+    else if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::SB) MuxB = 0b1; // Register Value
     else if (command == "lui") MuxB = 0b100; // 12 ("Interchanged")
     else if (simulator -> instructions[1].format == Format::U || simulator -> instructions[1].format == Format::I) MuxB = 0b10; // Immediate
     else if (simulator -> instructions[1].format == Format::S) MuxB = 0b11; // Immediate in RB and Register Value in RM
@@ -42,6 +66,7 @@ void ControlCircuit::UpdateExecuteSignals() {
     else if (command == "blt") ALU = 0b1111;
     else if (command == "bge") ALU = 0b10000;
     else if (command == "auipc") ALU = 0b10001;
+    else if (command == "jalr") ALU = 0b10010;
     else if (simulator -> instructions[2].format == Format::I || simulator -> instructions[2].format == Format::S) ALU = 0b1;
     else ALU = 0b0;
 }
@@ -60,11 +85,15 @@ void ControlCircuit::UpdateMemorySignals() {
     else if (command == "sw") MuxMD = 0b110;
     else MuxMD = 0b0;
 
-    if (simulator -> instructions[3].format == Format::R) MuxY = 0b1; // Select RZ
-    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") MuxY = 0b10; // Select MDR
-    else if (command == "jalr" || simulator -> instructions[3].format == Format::UJ) MuxY = 0b11; // Select Return Address
-    else if (simulator -> instructions[3].format == Format::I || simulator -> instructions[3].format == Format::U) MuxY = 0b1; // Select RZ
-    else MuxY = 0b0;
+    Debug::log("Current instruction: " + simulator -> instructions[3].literal);
+
+    if (simulator -> instructions[3].format == Format::R) { MuxY = 0b1; Debug::log("RZ prompted"); } // Select RZ
+    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") { MuxY = 0b10; Debug::log("MDR prompted"); } // Select MDR
+    else if (command == "jalr" || simulator -> instructions[3].format == Format::UJ) { MuxY = 0b11; Debug::log("Address prompted"); } // Select Return Address
+    else if (simulator -> instructions[3].format == Format::I || simulator -> instructions[3].format == Format::U) { MuxY = 0b1; Debug::log("RZ prompted"); } // Select RZ
+    else { MuxY = 0b0; Debug::log("Nothing coming up"); }
+
+    Debug::log("MuxY: " + to_string(MuxY));
 }
 
 void ControlCircuit::UpdateWritebackSignals() {
@@ -74,7 +103,7 @@ void ControlCircuit::UpdateWritebackSignals() {
     else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") EnableRegisterFile = 0b10; // Select MDR
     else if (command == "jalr" || simulator -> instructions[4].format == Format::UJ) EnableRegisterFile = 0b11; // Select Return Address
     else if (simulator -> instructions[4].format == Format::I || simulator -> instructions[4].format == Format::U) EnableRegisterFile = 0b1; // Select RZ
-    else MuxY = 0b0;
+    else EnableRegisterFile = 0b0;
 }
 
 void ControlCircuit::UpdateIAGSignals() {

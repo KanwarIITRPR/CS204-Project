@@ -59,44 +59,11 @@ class ForwardingUnit {
         // 0: No forwarding needed (use register file)
         // 1: Forward from EX/MEM (RZ)
         // 2: Forward from MEM/WB (RY)
-        int CheckForwardA(uint32_t rs1) {
-            // Forward from EX/MEM stage
-            if (simulator->control.EnableRegisterFile &&
-                !IsNullInstruction(simulator->instructions[3]) &&
-                simulator->instructions[3].rd != 0 &&
-                simulator->instructions[3].rd == rs1) {
-                return 1;
-            }
-            // Forward from MEM/WB stage
-            else if (simulator->control.EnableRegisterFile &&
-                     !IsNullInstruction(simulator->instructions[4]) &&
-                     simulator->instructions[4].rd != 0 &&
-                     simulator->instructions[4].rd == rs1) {
-                return 2;
-            }
-            // No forwarding needed
-            return 0;
-        }
-    
-        int CheckForwardB(uint32_t rs2) {
-            // Forward from EX/MEM stage
-            if (simulator->control.EnableRegisterFile &&
-                !IsNullInstruction(simulator->instructions[3]) &&
-                simulator->instructions[3].rd != 0 &&
-                simulator->instructions[3].rd == rs2) {
-                return 1;
-            }
-            // Forward from MEM/WB stage
-            else if (simulator->control.EnableRegisterFile &&
-                     !IsNullInstruction(simulator->instructions[4]) &&
-                     simulator->instructions[4].rd != 0 &&
-                     simulator->instructions[4].rd == rs2) {
-                return 2;
-            }
-            // No forwarding needed
-            return 0;
-        }
-    };
+        bool CheckForwardA_EX(uint32_t rs1);
+        bool CheckForwardB_EX(uint32_t rs2);
+        bool CheckForwardA_MEM(uint32_t rs1);
+        bool CheckForwardB_MEM(uint32_t rs2);
+};
 
 class IAG {
     private:
@@ -107,6 +74,7 @@ class IAG {
         void UpdateBuffer();
 
         void UpdatePC();
+        void UpdateFlush();
         // void UpdatePC_Memory();
 
         PipelinedSimulator* simulator;
@@ -159,6 +127,8 @@ class ProcessorMemoryInterface {
 
         MemoryRegisters instruction_memory;
         MemoryRegisters data_memory;
+
+        bool is_data_forwarded = false;
 };
 
 enum class PredictionState {
@@ -222,9 +192,6 @@ class PipelinedSimulator {
 
         // map<uint32_t, uint8_t> data_map;
         // map<uint32_t, Instruction> text_map;
-
-        
-        InterStageRegisters inter_stage;
         
         // uint32_t MAR = 0x00000000;
         // uint32_t MDR = 0x00000000;
@@ -247,6 +214,7 @@ class PipelinedSimulator {
         bool printRegisterFile = true;
         bool printPipelineRegisters = true;
         bool printInstructions = true;
+        bool printFetchedInstructionDetails = true;
         bool previouslyPrintingPipelineRegisters = true;
         int specified_instruction = 0; // 1-based indexing, i.e., 0 represents disabled / no instruction
         bool printPredictionDetails = true;
@@ -276,6 +244,10 @@ class PipelinedSimulator {
 
         void ShiftInstructionsStage();
         void UpdateBufferRegisters();
+        void Flush();
+        bool recently_flushed = false;
+        bool actual_outcome = true;
+        bool return_jump = false;
 
         void SetKnob1(bool set_value);
         void SetKnob2(bool set_value);
@@ -284,12 +256,15 @@ class PipelinedSimulator {
         void SetKnob5(uint32_t instruction_index);
         void SetKnob6(bool set_value);
         void SetKnob7(bool set_value);
+        void SetKnob8(bool set_value);
 
         void PrintInstructionInfo(Instruction instruction);
 
+        InterStageRegisters inter_stage;
         InterStageRegisters buffer;
         ForwardingUnit forwarding_unit;   //added for data forwarding
         Assembler assembler;
+        ForwardingUnit forwarding_unit;
         ControlCircuit control;
         ProcessorMemoryInterface memory;
         IAG iag;

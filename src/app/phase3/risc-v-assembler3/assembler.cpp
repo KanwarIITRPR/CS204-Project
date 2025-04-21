@@ -135,7 +135,10 @@ void Assembler::InitialParse() {
 
         if (IsValidDirective(tokens[0])) {
             if (text_mode) error_stream << "Data directives should be placed in \'.data\': " << current_instruction << endl;
-            current_address += directive_size.at(tokens[0]) * (tokens.size() - 1);
+            for (size_t i = 1; i < tokens.size(); i++) {
+                if (tokens[0] == ".asciiz") current_address += directive_size.at(tokens[0]) * (tokens[i].length() + 1);
+                else current_address += directive_size.at(tokens[0]);
+            }
         } else if (IsValidOperation(tokens[0])) {
             if (!text_mode) error_stream << "Operations should be placed in \'.text\': " << current_instruction << endl;
             current_address += INSTRUCTION_SIZE;
@@ -185,9 +188,23 @@ void Assembler::Assemble() {
 uint32_t Assembler::ExtractData(vector<string> tokens, uint32_t current_address) {
     string data_directive = tokens[0];
     for (size_t i = 1; i < tokens.size(); i++) {
-        if (!IsValidData(tokens[i], data_directive, true)) continue;
-        data_map[current_address] = {directive_size.at(data_directive), GetDecimalNumber(tokens[i])};
-        current_address += directive_size.at(data_directive);
+        if (data_directive == ".asciiz") {
+            if (!(tokens[i].find("\"") != -1 && tokens[i].rfind("\"") != -1)) {
+                error_stream << "Invalid string of characters: " << tokens[i] << endl;
+                continue;
+            }
+
+            int string_start = tokens[i].find("\"") + 1;
+            int string_length = tokens[i].rfind("\"") - string_start;
+            for (size_t j = 0; j < string_length; j++) {
+                data_map[current_address] = {directive_size.at(data_directive), (uint32_t) tokens[i][j + string_start]};
+                current_address += directive_size.at(data_directive);
+            }
+        } else {
+            if (!IsValidData(tokens[i], data_directive, true)) continue;
+            data_map[current_address] = {directive_size.at(data_directive), GetDecimalNumber(tokens[i])};
+            current_address += directive_size.at(data_directive);
+        }
     }
     return current_address;
 }
