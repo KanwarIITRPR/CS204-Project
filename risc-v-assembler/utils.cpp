@@ -1,9 +1,10 @@
 #include "utils.hpp"
 
 string error_file = "./logs/errors.txt";
+string stats_file = "./logs/stats.txt";
 string std_input_file = "./test/input.asm";
 string std_output_file = "./test/output.mc";
-ofstream error_stream;
+ofstream error_stream, stats_stream;
 
 map<string, char> hex_dict = {
     {"0000", '0'},
@@ -107,8 +108,15 @@ void InitializeFileStreams() {
         cout << "Couldn't open error logging file\n";
         return;
     }
+    
+    stats_stream.open(error_file);
+    if (!stats_stream.is_open()) {
+        cout << "Couldn't open error logging file\n";
+        return;
+    }
 }
 
 void CloseFileStreams() {
     error_stream.close();
+    stats_stream.close();
 }

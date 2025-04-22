@@ -80,7 +80,7 @@ void PipelinedSimulator::InitialParse() {
         } else {
             int bytes_stored = (stored_code.length() / 2) - 1;
             memory.AddData(current_address, GetDecimalNumber(stored_code), bytes_stored);
-            Debug::log("Added Data to data map");
+            Debug::log("Added " + stored_code + " to data map");
         }
     }
 
@@ -92,6 +92,7 @@ void PipelinedSimulator::InitialParse() {
     hdu.ExtractDataDependencies();
 
     for (auto pair: hdu.data_dependency_map) Debug::log(to_string(pair.first) + ": (" + to_string(pair.second.first) + ", " + to_string(pair.second.second) + ")");
+    memory.PrintDataMemory();
 }
 
 uint32_t PipelinedSimulator::GenerateMask(int length) { return (1 << length) - 1; }
@@ -213,7 +214,6 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
 void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     ShiftInstructionsStage();
     control.UpdateControlSignals();
-    Debug::log("MuxY: " + to_string(control.MuxY));
 
     if (!IsNullInstruction(instructions[4]) && !instructions[4].is_stalled) {
         Writeback();
@@ -337,6 +337,8 @@ void PipelinedSimulator::SetKnob8(bool set_value) { printFetchedInstructionDetai
 void PipelinedSimulator::UpdateBufferRegisters() {
     iag.UpdateBuffer();
 
+    memory.data_memory.MDR = buffer.RM;
+
     buffer.RA = inter_stage.RA;
     buffer.RB = inter_stage.RB;
     buffer.RM = inter_stage.RM;
@@ -380,10 +382,16 @@ void PipelinedSimulator::Decode() {
             break;
         case 0b100:
             inter_stage.RA = inter_stage.RZ;
+            Debug::log("EX to EX Data Forward ~ RS1");
             break;
         case 0b101:
             inter_stage.RA = inter_stage.RY;
+            Debug::log("MEM to EX Data Forward ~ RS1");
             break;
+        // case 0b110:
+        //     inter_stage.RM = inter_stage.RY;
+        //     Debug::log("MEM to EX Data Forward ~ RS1 ~ Store");
+        //     break;
         default: break;
     }
 
@@ -396,15 +404,23 @@ void PipelinedSimulator::Decode() {
             break;
         case 0b11:
             inter_stage.RB = decode_instruction.immediate;
+            inter_stage.RM = register_file[decode_instruction.rs2];
             break;
         case 0b100:
             inter_stage.RB = iag.INSTRUCTION_SIZE * BYTE_SIZE - immediate_bits.at(Format::U);
             break;
         case 0b101:
             inter_stage.RB = inter_stage.RZ;
+            Debug::log("EX to EX Data Forward ~ RS2");
             break;
         case 0b110:
             inter_stage.RB = inter_stage.RY;
+            Debug::log("MEM to EX Data Forward ~ RS2");
+            break;
+        case 0b111:
+            inter_stage.RB = decode_instruction.immediate;
+            inter_stage.RM = inter_stage.RY;
+            Debug::log("MEM to EX Data Forward ~ RS2 ~ Store");
             break;
         default: break;
     }
@@ -476,10 +492,6 @@ void PipelinedSimulator::Execute() {
                 recently_flushed = true;
             }
             break;
-        case 0b10011:
-            inter_stage.RZ = buffer.RA + buffer.RB;
-            inter_stage.RM = register_file[instructions[2].rs2];
-            break;
         default: break;
     }
 
@@ -507,16 +519,19 @@ void PipelinedSimulator::MemoryAccess() {
             memory.GetDataValue(4);
             break;
         case 0b100:
-            memory.data_memory.MDR = buffer.RM;
+            // memory.data_memory.MDR = buffer.RM;
             memory.StoreDataValue(1);
+            memory.PrintDataMemory();
             break;
         case 0b101:
-            memory.data_memory.MDR = buffer.RM;
+            // memory.data_memory.MDR = buffer.RM;
             memory.StoreDataValue(2);
+            memory.PrintDataMemory();
             break;
         case 0b110:
-            memory.data_memory.MDR = buffer.RM;
+            // memory.data_memory.MDR = buffer.RM;
             memory.StoreDataValue(4);
+            memory.PrintDataMemory();
             break;
         default: break;
     }

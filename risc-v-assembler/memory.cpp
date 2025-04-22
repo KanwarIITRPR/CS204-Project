@@ -33,6 +33,7 @@ void ProcessorMemoryInterface::StoreDataValue(int bytes) {
     }
 
     uint32_t data = data_memory.MDR;
+    Debug::log("Data to be stored: " + to_string(data) + " in " + to_string(bytes) + " bytes");
     for (size_t i = 0; i < bytes; i++) {
         data_map[data_memory.MAR + i] = data & 0x000000FF;
         data = data >> BYTE_SIZE;
@@ -41,8 +42,17 @@ void ProcessorMemoryInterface::StoreDataValue(int bytes) {
 
 void ProcessorMemoryInterface::AddInstruction(uint32_t location, Instruction instruction) { text_map[location] = instruction; }
 void ProcessorMemoryInterface::AddData(uint32_t location, uint32_t data, int bytes) {
+    Debug::log(">>> " + to_string(data) + " at " + to_string(location) + " for " + to_string(bytes));
     for (size_t i = 0; i < bytes; i++) {
+        Debug::log("Currently storing " + to_string(data & 0x000000FF));
         data_map[location + i] = data & 0x000000FF;
         data = data >> BYTE_SIZE;
+    }
+    Debug::log(to_string(data_map[location]));
+}
+
+void ProcessorMemoryInterface::PrintDataMemory() {
+    for (auto pair: data_map) {
+        cout << hex << "Location: 0x" << setw(8) << setfill('0') << pair.first << " ~ Data: 0x" << setw(2) << setfill('0') << pair.second << dec << endl;
     }
 }

@@ -25,8 +25,8 @@ recursive_factorial:
 # Temporaries used in the function are the comparator for n (1 stored in x18)
 run_factorial:
     # Storing the function's current state
-    addi x2 x2 -5
-    sw x1 1(x2)
+    addi x2 x2 -2
+    sb x1 1(x2)
     sb x11 0(x2)
 
     # Checking for errors and base case
@@ -40,8 +40,8 @@ run_factorial:
 
     # Retrieving the current function's variables before running any other command in the current function
     lb x11 0(x2)
-    lw x1 1(x2)
-    addi x2 x2 5
+    lb x1 1(x2)
+    addi x2 x2 2
 
     # Running final return operation
     mul x17 x11 x17
