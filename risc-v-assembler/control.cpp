@@ -20,12 +20,13 @@ void ControlCircuit::UpdateDecodeSignals() {
             Debug::log("Forwarder address: " + to_string(simulator -> hdu.data_dependency_map.at(simulator -> instructions[2].address).first));
             Debug::log("Current address: " + to_string(simulator -> instructions[1].address));
         }
-        if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.first &&
-        simulator -> hdu.data_dependency_map.at(simulator -> instructions[2].address).first == simulator -> instructions[1].address) {
+        if (simulator -> instructions[1].rs1 == simulator -> instructions[2].rd || simulator -> instructions[1].rs2 == simulator -> instructions[2].rd) {
+        // if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.first &&
+        // simulator -> hdu.data_dependency_map.at(simulator -> instructions[2].address).first == simulator -> instructions[1].address) {
             data_forwarding_A_EX = simulator -> forwarding_unit.CheckForwardA_EX(simulator -> instructions[1].rs1);
             data_forwarding_B_EX = simulator -> forwarding_unit.CheckForwardB_EX(simulator -> instructions[1].rs2);
         }
-        Debug::log("Data forwarding MEM to EX: " + to_string(data_forwarding_A_EX) + " (rd and rs1) & " + to_string(data_forwarding_B_EX) + " (rd and rs2)");
+        Debug::log("Data forwarding EX to EX: " + to_string(data_forwarding_A_EX) + " (rd and rs1) & " + to_string(data_forwarding_B_EX) + " (rd and rs2)");
     }
     
     if (simulator -> hasDataForwarding && !IsNullInstruction(simulator -> instructions[3])) {
@@ -36,8 +37,10 @@ void ControlCircuit::UpdateDecodeSignals() {
             Debug::log("Forwarder address: " + to_string(simulator -> hdu.data_dependency_map.at(simulator -> instructions[3].address).second));
             Debug::log("Current address: " + to_string(simulator -> instructions[1].address));
         }
-        if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.second &&
-        simulator -> hdu.data_dependency_map.at(simulator -> instructions[3].address).second == simulator -> instructions[1].address) {
+        Debug::log("Decode's rs1: " + to_string(simulator -> instructions[1].rs1) + "Decode's rs2: " + to_string(simulator -> instructions[1].rs2) + "Memory Access's rd: " + to_string(simulator -> instructions[3].rd));
+        if (simulator -> instructions[1].rs1 == simulator -> instructions[3].rd || simulator -> instructions[1].rs2 == simulator -> instructions[3].rd) {
+        // if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.second &&
+        // simulator -> hdu.data_dependency_map.at(simulator -> instructions[3].address).second == simulator -> instructions[1].address) {
                 data_forwarding_A_MEM = simulator -> forwarding_unit.CheckForwardA_MEM(simulator -> instructions[1].rs1);
                 data_forwarding_B_MEM = simulator -> forwarding_unit.CheckForwardB_MEM(simulator -> instructions[1].rs2);
         }
@@ -53,9 +56,10 @@ void ControlCircuit::UpdateDecodeSignals() {
     else if (command == "lui") MuxA = 0b11; // Interchange with immediate
     else MuxA = 0b0;
     
-    if (data_forwarding_B_EX) MuxB = 0b101;
-    else if (data_forwarding_B_MEM && simulator -> instructions[1].format != Format::S) MuxB = 0b110;
-    else if (data_forwarding_B_MEM && simulator -> instructions[1].format == Format::S) MuxB = 0b111;
+    if (data_forwarding_B_EX && simulator -> instructions[1].format != Format::S) MuxB = 0b101;
+    else if (data_forwarding_B_EX && simulator -> instructions[1].format == Format::S) MuxB = 0b110;
+    else if (data_forwarding_B_MEM && simulator -> instructions[1].format != Format::S) MuxB = 0b111;
+    else if (data_forwarding_B_MEM && simulator -> instructions[1].format == Format::S) MuxB = 0b1000;
     else if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::SB) MuxB = 0b1; // Register Value
     else if (command == "lui") MuxB = 0b100; // 12 ("Interchanged")
     else if (simulator -> instructions[1].format == Format::U || simulator -> instructions[1].format == Format::I) MuxB = 0b10; // Immediate

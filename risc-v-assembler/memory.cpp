@@ -23,7 +23,7 @@ void ProcessorMemoryInterface::GetDataValue(int bytes) {
     for (size_t i = 0; i < bytes; i++) {
         final_value += data_map[data_memory.MAR + i] << (BYTE_SIZE * i);
     }
-    data_memory.MDR = final_value;
+    data_memory.MDR = (final_value << (BYTE_SIZE * (4 - bytes))) >> (BYTE_SIZE * (4 - bytes));
 }
 
 void ProcessorMemoryInterface::StoreDataValue(int bytes) {

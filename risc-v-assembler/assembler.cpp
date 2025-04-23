@@ -150,7 +150,7 @@ void Assembler::InitialParse() {
 
 void Assembler::Assemble() {
     InitialParse();
-    cout << "Intial Parse Complete" << endl;
+    cout << "Initial Parse Complete" << endl;
     for (auto label : label_address) cout << label.first << " ~ " << label.second << endl;
     cout << endl;
     
@@ -200,6 +200,10 @@ uint32_t Assembler::ExtractData(vector<string> tokens, uint32_t current_address)
                 data_map[current_address] = {directive_size.at(data_directive), (uint32_t) tokens[i][j + string_start]};
                 current_address += directive_size.at(data_directive);
             }
+
+            // Adding '\0' (null character at the end to recognize string end)
+            data_map[current_address] = {directive_size.at(data_directive), 0x00};
+            current_address += directive_size.at(data_directive);
         } else {
             if (!IsValidData(tokens[i], data_directive, true)) continue;
             data_map[current_address] = {directive_size.at(data_directive), GetDecimalNumber(tokens[i])};
@@ -300,7 +304,7 @@ uint32_t Assembler::Get_S_Code(vector<string> tokens) {
     uint8_t function_3 = funct3.at(tokens[0]);
 
     uint8_t upper_immediate = BinaryToDecimal(immediate.substr(0, 7));
-    uint8_t lower_immediate = BinaryToDecimal(immediate.substr(7, 5));
+    uint8_t lower_immediate = BinaryToDecimal("0" + immediate.substr(7, 5));
 
     uint32_t machine_code = upper_immediate;
     machine_code = machine_code << REGISTER_LENGTH;
@@ -324,7 +328,7 @@ uint32_t Assembler::Get_SB_Code(vector<string> tokens) {
     uint8_t function_3 = funct3.at(tokens[0]);
 
     uint8_t upper_immediate = BinaryToDecimal(immediate[0] + immediate.substr(2, 6));
-    uint8_t lower_immediate = BinaryToDecimal(immediate.substr(8, 4) + immediate[1]);
+    uint8_t lower_immediate = BinaryToDecimal("0" + immediate.substr(8, 4) + immediate[1]);
 
     uint32_t machine_code = upper_immediate;
     machine_code = machine_code << REGISTER_LENGTH;

@@ -414,10 +414,15 @@ void PipelinedSimulator::Decode() {
             Debug::log("EX to EX Data Forward ~ RS2");
             break;
         case 0b110:
+            inter_stage.RB = decode_instruction.immediate;
+            inter_stage.RM = inter_stage.RZ;
+            Debug::log("EX to EX Data Forward ~ RS2 ~ Store");
+            break;
+        case 0b111:
             inter_stage.RB = inter_stage.RY;
             Debug::log("MEM to EX Data Forward ~ RS2");
             break;
-        case 0b111:
+        case 0b1000:
             inter_stage.RB = decode_instruction.immediate;
             inter_stage.RM = inter_stage.RY;
             Debug::log("MEM to EX Data Forward ~ RS2 ~ Store");
@@ -713,8 +718,8 @@ int main(int argC, char** argV) {
     sim.SetKnob7((argC > 6) ? GetDecimalNumber(argV[6]) : 1); // Instrctions in Pipeline
     sim.SetKnob8((argC > 7) ? GetDecimalNumber(argV[7]) : 1); // Fetched Instruction Details
 
-    // sim.Run(argV, false);
-    sim.Step(argV, false);
+    sim.Run(argV, false);
+    // sim.Step(argV, false);
     // for (size_t i = 0; i < run_time; i++) {
     //     sim.RunInstruction();
     //     cout << "======================================================" << endl;
