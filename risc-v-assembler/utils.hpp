@@ -6,10 +6,10 @@ using namespace std;
 
 #define BYTE_SIZE 8
 
-extern string error_file;
+extern string error_file, stats_file;
 extern string std_input_file;
 extern string std_output_file;
-extern ofstream error_stream;
+extern ofstream error_stream, stats_stream;
 
 extern map<string, char> hex_dict;
 

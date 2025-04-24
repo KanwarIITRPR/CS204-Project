@@ -247,6 +247,8 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     control.IncrementClock();
     if (hdu.cycles_to_stall) {
         hdu.cycles_to_stall -= 1;
+        total_stalls += 1;
+        stalls_data_hazards += 1;
         if (!hdu.cycles_to_stall) {
             for (size_t i = 0; i < PIPELINE_STAGES; i++) {
                 if (!IsNullInstruction(instructions[i])) instructions[i].is_stalled = false;
@@ -259,6 +261,7 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     if (specified_instruction) PrintSpecifiedPipelineRegisters();
     else if (printPipelineRegisters) PrintPipelineRegisters();
     if (printRegisterFile) PrintRegisterFile();
+    LogStats();
 
     if (hdu.next_cycle_stall) {
         instructions[0].is_stalled = true;
@@ -316,6 +319,9 @@ void PipelinedSimulator::Flush() {
 
     IR = 0;
     Debug::log("Flushed");
+
+    total_stalls += 2;
+    stalls_control_hazards += 2;
 }
 
 void PipelinedSimulator::SetKnob1(bool set_value) { hasPipeline = set_value; }
@@ -436,59 +442,88 @@ void PipelinedSimulator::Decode() {
 void PipelinedSimulator::Execute() {
     switch (control.ALU) {
         case 0b1:
-            inter_stage.RZ = buffer.RA + buffer.RB; break;
+            inter_stage.RZ = buffer.RA + buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b10:
-            inter_stage.RZ = buffer.RA - buffer.RB; break;
+            inter_stage.RZ = buffer.RA - buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b11:
-            inter_stage.RZ = buffer.RA * buffer.RB; break;
+            inter_stage.RZ = buffer.RA * buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b100:
             if (buffer.RB == 0) {
                 error_stream << "Divide by zero isn't possible: " << instructions[2].literal << endl;
                 return;
             }
-            inter_stage.RZ = buffer.RA / buffer.RB; break;
+            inter_stage.RZ = buffer.RA / buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b101:
-            inter_stage.RZ = buffer.RA % buffer.RB; break;
+            inter_stage.RZ = buffer.RA % buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b110:
-            inter_stage.RZ = buffer.RA ^ buffer.RB; break;
+            inter_stage.RZ = buffer.RA ^ buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b111:
-            inter_stage.RZ = buffer.RA | buffer.RB; break;
+            inter_stage.RZ = buffer.RA | buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b1000:
-            inter_stage.RZ = buffer.RA & buffer.RB; break;
+            inter_stage.RZ = buffer.RA & buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b1001:    
-            inter_stage.RZ = buffer.RA << buffer.RB; break;
+            inter_stage.RZ = buffer.RA << buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b1010:
-            inter_stage.RZ = buffer.RA >> buffer.RB; break;
+            inter_stage.RZ = buffer.RA >> buffer.RB;
+            ALU_instructions += 1;
+            break;
         case 0b1011:
-            inter_stage.RZ = arithmeticRightShift(buffer.RA, buffer.RB); break;
+            inter_stage.RZ = arithmeticRightShift(buffer.RA, buffer.RB);
+            ALU_instructions += 1;
+            break;
         case 0b1100:
-            inter_stage.RZ = ((int32_t) buffer.RA < (int32_t) buffer.RB) ? 1 : 0; break;
+            inter_stage.RZ = ((int32_t) buffer.RA < (int32_t) buffer.RB) ? 1 : 0;
+            ALU_instructions += 1;
+            break;
         case 0b1101:
             actual_outcome = control.MuxINC = (int32_t) buffer.RA == (int32_t) buffer.RB;
-            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) { recently_flushed = true; mispredictions += 1; }
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            ALU_instructions += 1;
             break;
         case 0b1110:
             actual_outcome = control.MuxINC = (int32_t) buffer.RA != (int32_t) buffer.RB;
-            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) { recently_flushed = true; mispredictions += 1; }
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            ALU_instructions += 1;
             break;
         case 0b1111:
             actual_outcome = control.MuxINC = (int32_t) buffer.RA < (int32_t) buffer.RB;
-            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) { recently_flushed = true; mispredictions += 1; }
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            ALU_instructions += 1;
             break;
         case 0b10000:
             actual_outcome = control.MuxINC = (int32_t) buffer.RA >= (int32_t) buffer.RB;
-            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) recently_flushed = true;
+            if (pht.isMisprediction(instructions[2].address, control.MuxINC)) { recently_flushed = true; mispredictions += 1; }
             pht.updatePrediction(instructions[2].address, control.MuxINC);
             Debug::log("Next prediction of " + instructions[2].literal + " will be " + to_string(pht.getPrediction(instructions[2].address)));
+            ALU_instructions += 1;
             break;
         case 0b10001:
             inter_stage.RZ = buffer.RA + (buffer.RB << (iag.INSTRUCTION_SIZE * BYTE_SIZE - immediate_bits.at(Format::U)));
+            ALU_instructions += 1;
             break;
         case 0b10010:
             inter_stage.RZ = buffer.RA + buffer.RB;
@@ -496,6 +531,7 @@ void PipelinedSimulator::Execute() {
                 return_jump = true;
                 recently_flushed = true;
             }
+            ALU_instructions += 1;
             break;
         default: break;
     }
@@ -516,27 +552,33 @@ void PipelinedSimulator::MemoryAccess() {
     switch (control.MuxMD) {
         case 0b1:
             memory.GetDataValue(1);
+            data_transfer_instructions += 1;
             break;
         case 0b10:
             memory.GetDataValue(2);
+            data_transfer_instructions += 1;
             break;
         case 0b11:
             memory.GetDataValue(4);
+            data_transfer_instructions += 1;
             break;
         case 0b100:
             // memory.data_memory.MDR = buffer.RM;
             memory.StoreDataValue(1);
             memory.PrintDataMemory();
+            data_transfer_instructions += 1;
             break;
         case 0b101:
             // memory.data_memory.MDR = buffer.RM;
             memory.StoreDataValue(2);
             memory.PrintDataMemory();
+            data_transfer_instructions += 1;
             break;
         case 0b110:
             // memory.data_memory.MDR = buffer.RM;
             memory.StoreDataValue(4);
             memory.PrintDataMemory();
+            data_transfer_instructions += 1;
             break;
         default: break;
     }
@@ -567,6 +609,7 @@ void PipelinedSimulator::Writeback() {
     Instruction writeback_instruction = instructions[4];
 
     if (control.EnableRegisterFile) register_file[writeback_instruction.rd] = buffer.RY;
+    instructions_executed += 1;
 
     Reset_x0();
 }
@@ -698,6 +741,23 @@ void PipelinedSimulator::PrintInstructionInfo(Instruction instruction) {
     cout << endl;
 }
 
+void PipelinedSimulator::LogStats() {
+    stats_stream.open(stats_file);
+    stats_stream << "Clock Cycles: " << control.CyclesExecuted() << "\n";
+    stats_stream << "Instructions Executed: " << instructions_executed << "\n";
+    stats_stream << "CPI: " << (double) control.CyclesExecuted() / instructions_executed << "\n";
+    stats_stream << "Data Transfers: " << data_transfer_instructions << "\n";
+    stats_stream << "ALU Instructions Executed: " << ALU_instructions << "\n";
+    stats_stream << "Control Instructions Executed: " << control_instructions << "\n";
+    stats_stream << "Stalls in the pipeline: " << total_stalls << "\n";
+    stats_stream << "Data hazards: " << data_hazards << "\n";
+    stats_stream << "Control hazards: " << control_hazards << "\n";
+    stats_stream << "Branch Mispredictions: " << mispredictions << "\n";
+    stats_stream << "Stalls due to data hazards: " << stalls_data_hazards << "\n";
+    stats_stream << "Stalls due to control hazards: " << stalls_control_hazards << "\n";
+    stats_stream.close();
+}
+
 bool Debug::debug = true;
 int Debug::debug_count = 0;
 
@@ -718,12 +778,14 @@ int main(int argC, char** argV) {
     sim.SetKnob7((argC > 6) ? GetDecimalNumber(argV[6]) : 1); // Instrctions in Pipeline
     sim.SetKnob8((argC > 7) ? GetDecimalNumber(argV[7]) : 1); // Fetched Instruction Details
 
-    sim.Run(argV, false);
-    // sim.Step(argV, false);
+    if (argC > 8 && GetDecimalNumber(argV[8])) sim.Run(argV, false);
+    else sim.Step(argV, false);
     // for (size_t i = 0; i < run_time; i++) {
     //     sim.RunInstruction();
     //     cout << "======================================================" << endl;
     // }
+
+    sim.LogStats();
 
     sim.fin.close();
     CloseFileStreams();

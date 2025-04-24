@@ -265,6 +265,7 @@ class PipelinedSimulator {
         void SetKnob8(bool set_value);
 
         void PrintInstructionInfo(Instruction instruction);
+        void LogStats();
 
         InterStageRegisters inter_stage;
         InterStageRegisters buffer;
@@ -279,6 +280,17 @@ class PipelinedSimulator {
         BTB btb;
 
         Instruction instructions[PIPELINE_STAGES]; // 0 - Fetch, ..., 4 - Writeback
+
+        unsigned int instructions_executed = 0;
+        unsigned int data_transfer_instructions = 0;
+        unsigned int ALU_instructions = 0;
+        unsigned int control_instructions = 0;
+        unsigned int total_stalls = 0;
+        unsigned int data_hazards = 0;
+        unsigned int control_hazards = 0;
+        unsigned int mispredictions = 0;
+        unsigned int stalls_data_hazards = 0;
+        unsigned int stalls_control_hazards = 0;
 
         PipelinedSimulator(const string assembly_file, const string machine_file) : assembler(assembly_file, machine_file), forwarding_unit(this) {
             assembler.Assemble();

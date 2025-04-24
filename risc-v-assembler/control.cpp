@@ -128,8 +128,14 @@ void ControlCircuit::UpdateWritebackSignals() {
 }
 
 void ControlCircuit::UpdateIAGSignals() {
-    if (simulator -> instructions[2].literal.substr(0, simulator -> instructions[2].literal.find(" ")) == "jalr") { MuxPC = 0b1; Debug::log("jalr in execute selected"); }
-    else if (simulator -> instructions[0].format == Format::SB || simulator -> instructions[0].format == Format::UJ) {
+    if (simulator -> instructions[2].literal.substr(0, simulator -> instructions[2].literal.find(" ")) == "jalr") { 
+        MuxPC = 0b1; 
+        simulator -> control_instructions += 1;
+        simulator -> control_hazards += 1;
+        Debug::log("jalr in execute selected");
+    } else if (simulator -> instructions[0].format == Format::SB || simulator -> instructions[0].format == Format::UJ) {
+        simulator -> control_instructions += 1;
+        if (simulator -> instructions[0].format == Format::SB) simulator -> control_hazards += 1;
         Debug::log("Entered PC Change: " + simulator -> instructions[0].literal);
         if (simulator -> btb.isUnconditionalBranch(simulator -> instructions[0].address)) { MuxPC = 0b10; Debug::log("Unconditional selected: " + to_string(MuxPC)); }
         else if (simulator -> pht.getPrediction(simulator -> instructions[0].address)) { MuxPC = 0b10; Debug::log("Conditional predicted taken"); }

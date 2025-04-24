@@ -18,11 +18,13 @@ void HazardDetectionUnit::ExtractDataDependencies() {
         if (!IsNullInstruction(instructions[1]) && HasDataDependency(instructions[0], instructions[1])) {
             dependency_bits.first = true;
             dependency_address.first = instructions[1].address;
+            simulator -> data_hazards += 1;
         }
         
         if (!IsNullInstruction(instructions[2]) && HasDataDependency(instructions[0], instructions[2])) {
             dependency_bits.second = true;
             dependency_address.second = instructions[2].address;
+            simulator -> data_hazards += 1;
         }
 
         if (dependency_bits.first || dependency_bits.second) {

@@ -109,9 +109,9 @@ void InitializeFileStreams() {
         return;
     }
     
-    stats_stream.open(error_file);
+    stats_stream.open(stats_file);
     if (!stats_stream.is_open()) {
-        cout << "Couldn't open error logging file\n";
+        cout << "Couldn't open stats file\n";
         return;
     }
 }
