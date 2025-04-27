@@ -17,11 +17,8 @@ long long GetDecimalNumber(string s);
 string DecimalToBinary(int32_t decimal, int bits = 32);
 int BinaryToDecimal(const string& binary);
 string extendBits(const string& binary, int targetBits = 32);
-string BinaryToHex(string binaryNumber);
 
 uint32_t arithmeticRightShift(uint32_t x, uint32_t n);
-
-string trimString(string str);
 
 void InitializeFileStreams();
 void CloseFileStreams();

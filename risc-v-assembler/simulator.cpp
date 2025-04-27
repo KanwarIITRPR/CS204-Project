@@ -381,10 +381,10 @@ void PipelinedSimulator::Decode() {
             inter_stage.RA = register_file[decode_instruction.rs1];
             break;
         case 0b10:
-            inter_stage.RA = iag.buffer_PC;
+            inter_stage.RA = decode_instruction.immediate;
             break;
         case 0b11:
-            inter_stage.RA = decode_instruction.immediate;
+            inter_stage.RA = iag.buffer_PC;
             break;
         case 0b100:
             inter_stage.RA = inter_stage.RZ;

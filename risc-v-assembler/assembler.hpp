@@ -1,10 +1,8 @@
 #ifndef ASSEMBLER_H
 #define ASSEMBLER_H
 
-#include <math.h>
 #include "operations.hpp"
 #include "lexer.hpp"
-// #include "simulator.hpp"
 
 #define TEXT_ADDRESS 0x00000000
 #define DATA_ADDRESS 0x10000000
@@ -54,36 +52,48 @@ class Assembler {
         ofstream fout;
         map<string, uint32_t> label_address;
         Lexer lexer;
+
         const uint8_t INSTRUCTION_SIZE = 4;
         const uint8_t ADDRESS_SIZE = 8;
         map<uint32_t, pair<uint32_t, uint32_t>> data_map;
         map<uint32_t, pair<uint32_t, string>> text_map;
 
-    public:
-        bool HasCorrectOperandsFormat(vector<string> tokens);
+        // Checking for valid operation arguments
         bool IsValidRegister(string input_register, bool log_error = false);
         bool IsValidImmediate(string input_immediate, Format format, bool log_error = false);
         bool IsValidData(string input_data, string directive, bool log_error = false);
+        
+        // Standardize format to basic RISC-V Code
+        bool HasCorrectOperandsFormat(vector<string> tokens);
         vector<string> TransformOffsetRegisterFormat(vector<string> tokens, bool log_error = true);
         vector<string> CorrectLabels(vector<string> tokens, uint32_t current_address, bool log_error = true);
+        
+        // Extract values for text and data segment
         uint32_t ExtractData(vector<string> tokens, uint32_t current_address);
         uint32_t ExtractText(vector<string> tokens, uint32_t current_address);
+
+        // Extract command-specific machine code
         uint32_t Get_R_Code(vector<string> tokens);
         uint32_t Get_I_Code(vector<string> tokens);
         uint32_t Get_S_Code(vector<string> tokens);
         uint32_t Get_SB_Code(vector<string> tokens);
         uint32_t Get_U_Code(vector<string> tokens);
         uint32_t Get_UJ_Code(vector<string> tokens);
+
+        // Compute label addresses and any possible errors in initial parse
         void InitialParse();
+        
+    public:
         void Assemble();
         void ShowOutput();
 
         Assembler(const string &assembly_file, const string &machine_file) : lexer(assembly_file) {
             fout.open(machine_file);
-            if (!fout.is_open()) { error_stream << "Couldn't open output file: " << assembly_file << "\n"; return; }
+            if (!fout.is_open()) {
+                error_stream << "Couldn't open output file: " << assembly_file << endl;
+                return;
+            }
         };
-
-        // friend class PipelinedSimulator;
 };
 
 #endif

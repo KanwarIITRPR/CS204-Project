@@ -53,6 +53,7 @@ long long GetDecimalNumber(string s) {
         return -1;
     }
 }
+
 string DecimalToBinary(int32_t decimal, int bits) {
     if (decimal >= 0) return bitset<32>(decimal).to_string().substr(32 - bits);
     else return bitset<32>(static_cast<uint32_t>(decimal)).to_string().substr(32 - bits);
@@ -79,27 +80,10 @@ string extendBits(const string& binary, int targetBits) {
     return extension + binary;
 }
 
-string BinaryToHex(string binaryNumber) {
-    binaryNumber = string(binaryNumber.length() % 4 ? 4 - binaryNumber.length() % 4 : 0, '0') + binaryNumber;
-    string hexadecimal;
-    for (size_t i = 0; i < binaryNumber.length(); i += 4) {
-        string group = binaryNumber.substr(i, 4);
-        hexadecimal += hex_dict[group];
-    }
-    return hexadecimal;
-}
-
 uint32_t arithmeticRightShift(uint32_t x, uint32_t n) {
     uint32_t signBit = x & 0x80000000;
     uint32_t mask = (-(signBit >> 31)) & (~(0xFFFFFFFF >> n));
     return (x >> n) | mask;
-}
-
-string trimString(string str) {
-    size_t first = str.find_first_not_of(" \t\r\n");
-    if (first == string::npos) return "";
-    size_t last = str.find_last_not_of(" \t\r\n");
-    return str.substr(first, last - first + 1);
 }
 
 void InitializeFileStreams() {

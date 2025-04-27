@@ -8,10 +8,7 @@ void ControlCircuit::UpdateControlSignals() {
 }
 
 void ControlCircuit::UpdateDecodeSignals() {
-    string command = simulator -> instructions[1].literal.substr(0, simulator -> instructions[1].literal.find(" "));
-
     bool data_forwarding_A_EX = false, data_forwarding_B_EX = false, data_forwarding_A_MEM = false, data_forwarding_B_MEM = false;
-    
     if (simulator -> hasDataForwarding && !IsNullInstruction(simulator -> instructions[2])) {
         Debug::log("Signalling data forwarding EX to EX: " + simulator -> instructions[2].literal + " to " + simulator -> instructions[1].literal);
         auto dependent_pair = simulator -> hdu.data_dependency_bits.find(simulator -> instructions[2].address);
@@ -21,8 +18,6 @@ void ControlCircuit::UpdateDecodeSignals() {
             Debug::log("Current address: " + to_string(simulator -> instructions[1].address));
         }
         if (simulator -> instructions[1].rs1 == simulator -> instructions[2].rd || simulator -> instructions[1].rs2 == simulator -> instructions[2].rd) {
-        // if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.first &&
-        // simulator -> hdu.data_dependency_map.at(simulator -> instructions[2].address).first == simulator -> instructions[1].address) {
             data_forwarding_A_EX = simulator -> forwarding_unit.CheckForwardA_EX(simulator -> instructions[1].rs1);
             data_forwarding_B_EX = simulator -> forwarding_unit.CheckForwardB_EX(simulator -> instructions[1].rs2);
         }
@@ -39,8 +34,6 @@ void ControlCircuit::UpdateDecodeSignals() {
         }
         Debug::log("Decode's rs1: " + to_string(simulator -> instructions[1].rs1) + "Decode's rs2: " + to_string(simulator -> instructions[1].rs2) + "Memory Access's rd: " + to_string(simulator -> instructions[3].rd));
         if (simulator -> instructions[1].rs1 == simulator -> instructions[3].rd || simulator -> instructions[1].rs2 == simulator -> instructions[3].rd) {
-        // if (dependent_pair != simulator -> hdu.data_dependency_bits.end() && (*dependent_pair).second.second &&
-        // simulator -> hdu.data_dependency_map.at(simulator -> instructions[3].address).second == simulator -> instructions[1].address) {
                 data_forwarding_A_MEM = simulator -> forwarding_unit.CheckForwardA_MEM(simulator -> instructions[1].rs1);
                 data_forwarding_B_MEM = simulator -> forwarding_unit.CheckForwardB_MEM(simulator -> instructions[1].rs2);
         }
@@ -49,82 +42,347 @@ void ControlCircuit::UpdateDecodeSignals() {
 
     if (data_forwarding_A_EX) MuxA = 0b100;
     else if (data_forwarding_A_MEM) MuxA = 0b101;
-    // else if (data_forwarding_A_MEM && simulator -> instructions[1].format != Format::S) MuxA = 0b101;
-    // else if (data_forwarding_A_MEM && simulator -> instructions[1].format == Format::S) MuxA = 0b110;
-    else if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::I || simulator -> instructions[1].format == Format::S || simulator -> instructions[1].format == Format::SB) MuxA = 0b1; // Register Value
-    else if (command == "auipc") MuxA = 0b10; // PC
-    else if (command == "lui") MuxA = 0b11; // Interchange with immediate
-    else MuxA = 0b0;
-    
-    if (data_forwarding_B_EX && simulator -> instructions[1].format != Format::S) MuxB = 0b101;
-    else if (data_forwarding_B_EX && simulator -> instructions[1].format == Format::S) MuxB = 0b110;
-    else if (data_forwarding_B_MEM && simulator -> instructions[1].format != Format::S) MuxB = 0b111;
-    else if (data_forwarding_B_MEM && simulator -> instructions[1].format == Format::S) MuxB = 0b1000;
-    else if (simulator -> instructions[1].format == Format::R || simulator -> instructions[1].format == Format::SB) MuxB = 0b1; // Register Value
-    else if (command == "lui") MuxB = 0b100; // 12 ("Interchanged")
-    else if (simulator -> instructions[1].format == Format::U || simulator -> instructions[1].format == Format::I) MuxB = 0b10; // Immediate
-    else if (simulator -> instructions[1].format == Format::S) MuxB = 0b11; // Immediate in RB and Register Value in RM
-    else MuxB = 0b0;
+    else
+        switch (simulator -> instructions[1].opcode) {
+        case 0b0110011: // R-Type
+            MuxA = 0b1;
+            break;
+        case 0b0010011: // I-Type (Normal Immediate)
+            MuxA = 0b1;
+            break;
+        case 0b0000011: // I-Type (Load)
+            MuxA = 0b1;
+            break;
+        case 0b1100111: // I-Type (Return)
+            MuxA = 0b1;
+            break;
+        case 0b0100011: // S-Type
+            MuxA = 0b1;
+            break;;
+        case 0b1100011: // SB-Type
+            MuxA = 0b1;
+            break;
+        case 0b0110111: // U-Type (Normal Upper Immediate)
+            MuxA = 0b10;
+            break;
+        case 0b0010111: // U-Type (PC-added Upper Immediate)
+            MuxA = 0b11;
+            break;
+        case 0b1101111: // UJ-Type
+            MuxA = 0b0;
+            break;
+        default: return;
+        }
+
+    if (data_forwarding_B_EX)
+        switch (simulator -> instructions[1].opcode) {
+        case 0b0100011: // S-Type
+            MuxB = 0b110;
+            break;
+        default:
+            MuxB = 0b101;
+            break;
+        }
+    else if (data_forwarding_B_MEM)
+        switch (simulator -> instructions[1].opcode) {
+        case 0b0100011: // S-Type
+            MuxB = 0b1000;
+            break;
+        default:
+            MuxB = 0b111;
+            break;
+        }
+    else
+        switch (simulator -> instructions[1].opcode) {
+        case 0b0110011: // R-Type
+            MuxB = 0b1;
+            break;
+        case 0b0010011: // I-Type (Normal Immediate)
+            MuxB = 0b10;
+            break;
+        case 0b0000011: // I-Type (Load)
+            MuxB = 0b10;
+            break;
+        case 0b1100111: // I-Type (Return)
+            MuxB = 0b10;
+            break;
+        case 0b0100011: // S-Type
+            MuxB = 0b11;
+            break;
+        case 0b1100011: // SB-Type
+            MuxB = 0b1;
+            break;
+        case 0b0110111: // U-Type (Normal Upper Immediate)
+            MuxB = 0b100;
+            break;
+        case 0b0010111: // U-Type (PC-added Upper Immediate)
+            MuxB = 0b10;
+            break;
+        case 0b1101111: // UJ-Type
+            MuxB = 0b0;
+            break;
+        default: return;
+        }
 }
 
 void ControlCircuit::UpdateExecuteSignals() {
-    string command = simulator -> instructions[2].literal.substr(0, simulator -> instructions[2].literal.find(" "));
-    
-    if (command == "add" || command == "addi") ALU = 0b1;
-    else if (command == "sub") ALU = 0b10;
-    else if (command == "mul") ALU = 0b11;
-    else if (command == "div") ALU = 0b100;
-    else if (command == "rem") ALU = 0b101;
-    else if (command == "xor" || command == "xori") ALU = 0b110;
-    else if (command == "or" || command == "ori") ALU = 0b111;
-    else if (command == "and" || command == "andi") ALU = 0b1000;
-    else if (command == "sll" || command == "lui") ALU = 0b1001;
-    else if (command == "srl") ALU = 0b1010;
-    else if (command == "sra") ALU = 0b1011;
-    else if (command == "slt") ALU = 0b1100;
-    else if (command == "beq") ALU = 0b1101;
-    else if (command == "bne") ALU = 0b1110;
-    else if (command == "blt") ALU = 0b1111;
-    else if (command == "bge") ALU = 0b10000;
-    else if (command == "auipc") ALU = 0b10001;
-    else if (command == "jalr") ALU = 0b10010;
-    else if (simulator -> instructions[2].format == Format::I || simulator -> instructions[2].format == Format::S) ALU = 0b1;
-    else ALU = 0b0;
+    switch (simulator -> instructions[2].opcode) {
+    case 0b0110011: // R-Type
+        switch (simulator -> instructions[2].funct3) {
+        case 0b000: // add, sub, mul
+            switch (simulator -> instructions[2].funct7) {
+            case 0b0000000: // add
+                ALU = 0b1;
+                break;
+            case 0b0100000: // sub
+                ALU = 0b10;
+                break;
+            case 0b0000001: // mul
+                ALU = 0b11;
+                break;
+            }
+            break;
+        case 0b001: // sll
+            ALU = 0b1001;
+            break;
+        case 0b010: // slt
+            ALU = 0b1100;
+            break;
+        case 0b100:
+            switch (simulator -> instructions[2].funct7) {
+            case 0b0000001: // div
+                ALU = 0b100;
+                break;
+            case 0b0000000: // xor
+                ALU = 0b110;
+                break;
+            }
+            break;
+        case 0b101:
+            switch (simulator -> instructions[2].funct7) {
+            case 0b0100000: // sra
+                ALU = 0b1011;
+                break;
+            case 0b0000000: // srl
+                ALU = 0b1010;
+                break;
+            }
+            break;
+        case 0b110:
+            switch (simulator -> instructions[2].funct7) {
+            case 0b0000001: // rem
+                ALU = 0b101;
+                break;
+            case 0b0000000: // or
+                ALU = 0b111;
+                break;
+            }
+            break;
+        case 0b111: // and
+            ALU = 0b1000;
+            break;
+        }
+        break;
+    case 0b0010011: // I-Type (Normal Immediate)
+        switch (simulator -> instructions[2].funct3) {
+        case 0b000: // addi
+            ALU = 0b1;
+            break;
+        case 0b100: // xori
+            ALU = 0b110;
+            break;
+        case 0b110: // ori
+            ALU = 0b111;
+            break;
+        case 0b111: // andi
+            ALU = 0b1000;
+            break;
+        }
+        break;
+    case 0b0000011: // I-Type (Load)
+        ALU = 0b1;
+        break;
+    case 0b1100111: // I-Type (Return)
+        ALU = 0b10010;
+        break;
+    case 0b0100011: // S-Type
+        ALU = 0b1;
+        break;
+    case 0b1100011: // SB-Type
+        switch (simulator -> instructions[2].funct3) {
+        case 0b000: // beq
+            ALU = 0b1101;
+            break;
+        case 0b001: // bne
+            ALU = 0b1110;
+            break;
+        case 0b100: // blt
+            ALU = 0b1111;
+            break;
+        case 0b101: // bge
+            ALU = 0b10000;
+            break;
+        }
+        break;
+    case 0b0110111: // U-Type (Normal Upper Immediate)
+        ALU = 0b1001;
+        break;
+    case 0b0010111: // U-Type (PC-added Upper Immediate)
+        ALU = 0b10001;
+        break;
+    case 0b1101111: // UJ-Type
+        ALU = 0b0;
+        break;
+    default: return;
+    }
 }
 
 void ControlCircuit::UpdateMemorySignals() {
-    string command = simulator -> instructions[3].literal.substr(0, simulator -> instructions[3].literal.find(" "));
+    switch (simulator -> instructions[3].opcode) {
+        case 0b0110011: // R-Type
+            MuxMA = 0b0;
+            break;
+        case 0b0010011: // I-Type (Normal Immediate)
+            MuxMA = 0b0;
+            break;
+        case 0b0000011: // I-Type (Load)
+            MuxMA = 0b1;
+            break;
+        case 0b1100111: // I-Type (Return)
+            MuxMA = 0b0;
+            break;
+        case 0b0100011: // S-Type
+            MuxMA = 0b1;
+            break;
+        case 0b1100011: // SB-Type
+            MuxMA = 0b0;
+            break;
+        case 0b0110111: // U-Type (Normal Upper Immediate)
+            MuxMA = 0b0;
+            break;
+        case 0b0010111: // U-Type (PC-added Upper Immediate)
+            MuxMA = 0b0;
+            break;
+        case 0b1101111: // UJ-Type
+            MuxMA = 0b0;
+            break;
+        default: return;
+    }
 
-    if (command == "lb" || command == "lh" || command == "lw" || command == "ld" || simulator -> instructions[3].format == Format::S) MuxMA = 0b1;
-    else MuxMA = 0b0;
+    switch (simulator -> instructions[3].opcode) {
+    case 0b0110011: // R-Type
+        MuxMD = 0b0;
+        break;
+    case 0b0010011: // I-Type (Normal Immediate)
+        MuxMD = 0b0;
+        break;
+    case 0b0000011: // I-Type (Load)
+        switch (simulator -> instructions[3].funct3) {
+        case 0b000: // lb
+            MuxMD = 0b1;
+            break;
+        case 0b001: // lh
+            MuxMD = 0b10;
+            break;
+        case 0b010: // lw
+            MuxMD = 0b11;
+            break;
+        }
+        break;
+    case 0b1100111: // I-Type (Return)
+        MuxMD = 0b0;
+        break;
+    case 0b0100011: // S-Type
+        switch (simulator -> instructions[3].funct3) {
+        case 0b000: // sb
+            MuxMD = 0b100;
+            break;
+        case 0b001: // sh
+            MuxMD = 0b101;
+            break;
+        case 0b010: // sw
+            MuxMD = 0b110;
+            break;
+        }
+        break;
+    case 0b1100011: // SB-Type
+        MuxMD = 0b0;
+        break;
+    case 0b0110111: // U-Type (Normal Upper Immediate)
+        MuxMD = 0b0;
+        break;
+    case 0b0010111: // U-Type (PC-added Upper Immediate)
+        MuxMD = 0b0;
+        break;
+    case 0b1101111: // UJ-Type
+        MuxMD = 0b0;
+        break;
+    default: return;
+    }
 
-    if (command == "lb") MuxMD = 0b1;
-    else if (command == "lh") MuxMD = 0b10;
-    else if (command == "lw") MuxMD = 0b11;
-    else if (command == "sb") MuxMD = 0b100;
-    else if (command == "sh") MuxMD = 0b101;
-    else if (command == "sw") MuxMD = 0b110;
-    else MuxMD = 0b0;
-
-    Debug::log("Current instruction: " + simulator -> instructions[3].literal);
-
-    if (simulator -> instructions[3].format == Format::R) { MuxY = 0b1; Debug::log("RZ prompted"); } // Select RZ
-    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") { MuxY = 0b10; Debug::log("MDR prompted"); } // Select MDR
-    else if (command == "jalr" || simulator -> instructions[3].format == Format::UJ) { MuxY = 0b11; Debug::log("Address prompted"); } // Select Return Address
-    else if (simulator -> instructions[3].format == Format::I || simulator -> instructions[3].format == Format::U) { MuxY = 0b1; Debug::log("RZ prompted"); } // Select RZ
-    else { MuxY = 0b0; Debug::log("Nothing coming up"); }
-
-    Debug::log("MuxY: " + to_string(MuxY));
+    switch (simulator -> instructions[3].opcode) {
+        case 0b0110011: // R-Type
+            MuxY = 0b1;
+            break;
+        case 0b0010011: // I-Type (Normal Immediate)
+            MuxY = 0b1;
+            break;
+        case 0b0000011: // I-Type (Load)
+            MuxY = 0b10;
+            break;
+        case 0b1100111: // I-Type (Return)
+            MuxY = 0b11;
+            break;
+        case 0b0100011: // S-Type
+            MuxY = 0b0;
+            break;
+        case 0b1100011: // SB-Type
+            MuxY = 0b0;
+            break;
+        case 0b0110111: // U-Type (Normal Upper Immediate)
+            MuxY = 0b1;
+            break;
+        case 0b0010111: // U-Type (PC-added Upper Immediate)
+            MuxY = 0b1;
+            break;
+        case 0b1101111: // UJ-Type
+            MuxY = 0b11;
+            break;
+        default: return;
+    }
 }
 
 void ControlCircuit::UpdateWritebackSignals() {
-    string command = simulator -> instructions[4].literal.substr(0, simulator -> instructions[4].literal.find(" "));
-    
-    if (simulator -> instructions[4].format == Format::R) EnableRegisterFile = 0b1; // Select RZ
-    else if (command == "lb" || command == "lh" || command == "lw" || command == "ld") EnableRegisterFile = 0b10; // Select MDR
-    else if (command == "jalr" || simulator -> instructions[4].format == Format::UJ) EnableRegisterFile = 0b11; // Select Return Address
-    else if (simulator -> instructions[4].format == Format::I || simulator -> instructions[4].format == Format::U) EnableRegisterFile = 0b1; // Select RZ
-    else EnableRegisterFile = 0b0;
+    switch (simulator -> instructions[4].opcode) {
+        case 0b0110011: // R-Type
+            EnableRegisterFile = 0b1;
+            break;
+        case 0b0010011: // I-Type (Normal Immediate)
+            EnableRegisterFile = 0b1;
+            break;
+        case 0b0000011: // I-Type (Load)
+            EnableRegisterFile = 0b1;
+            break;
+        case 0b1100111: // I-Type (Return)
+            EnableRegisterFile = 0b1;
+            break;
+        case 0b0100011: // S-Type
+            EnableRegisterFile = 0b0;
+            break;
+        case 0b1100011: // SB-Type
+            EnableRegisterFile = 0b0;
+            break;
+        case 0b0110111: // U-Type (Normal Upper Immediate)
+            EnableRegisterFile = 0b1;
+            break;
+        case 0b0010111: // U-Type (PC-added Upper Immediate)
+            EnableRegisterFile = 0b1;
+            break;
+        case 0b1101111: // UJ-Type
+            EnableRegisterFile = 0b1;
+            break;
+        default: return;
+    }
 }
 
 void ControlCircuit::UpdateIAGSignals() {
@@ -142,11 +400,3 @@ void ControlCircuit::UpdateIAGSignals() {
         else { MuxPC = 0b0; Debug::log("Conditional predicted not-taken"); }
     } else { MuxPC = 0b0; Debug::log("Standard PC increment selected"); }
 }
-// Debug::log("Command in Memory: \"" + command + "\", MuxPC: " + to_string(MuxPC));
-
-// if (command == "jalr") MuxPC = 0b1; // Select RZ
-// else MuxPC = 0b0; // Select INSTRUCTION_SIZE
-
-// if (command == "jal") MuxINC = 0b1; // Select immediate
-// else if (command == "beq" || command == "bne" || command == "blt" || command == "bge") MuxINC = MuxINC; // Already calculated
-// else MuxINC = 0b0; // Select 4

@@ -20,6 +20,15 @@ struct Instruction {
     Format format;
     Stage stage;
     bool is_stalled;
+
+    // To be implemented
+    // Instruction() {
+    //     machine_code = address = opcode = rd = rs1 = rs2 = funct3 = funct7 = immediate = 0;
+    //     literal = "";
+    //     format = Format::INVALID;
+    //     stage = Stage::QUEUED;
+    //     is_stalled = false;
+    // }
 };
 
 #define NULL_INSTRUCTION Instruction()

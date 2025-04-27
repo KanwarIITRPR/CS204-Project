@@ -40,4 +40,13 @@ int main() {
     immediate = immediate >> 20;
     cout << immediate << " " << DecimalToBinary(immediate) << endl;
     cout << result << " " << DecimalToBinary(result) << endl;
+
+    switch (2) {
+        case 1:
+            cout << 1 << endl;
+        case 2:
+            cout << 2 << endl;
+        case 3:
+            cout << 3 << endl;
+    }
 }
