@@ -1,10 +1,26 @@
 #include "utils.hpp"
 
-string error_file = "./logs/errors.txt";
-string stats_file = "./logs/stats.txt";
 string std_input_file = "./test/input.asm";
 string std_output_file = "./test/output.mc";
+
+string error_file = "./logs/errors.txt";
+string stats_file = "./logs/stats.txt";
+string parameters_file = "./logs/parameters.txt";
+
+string fetch_output = "./logs/instructions/fetch.txt";
+string decode_output = "./logs/instructions/decode.txt";
+string execute_output = "./logs/instructions/execute.txt";
+string memory_output = "./logs/instructions/memory_access.txt";
+string writeback_output = "./logs/instructions/writeback.txt";
+
+string data_forwarding_output = "./logs/data_forwarding.txt";
+string stalling_output = "./logs/stalling.txt";
+string flushing_output = "./logs/flushing.txt";
+
 ofstream error_stream, stats_stream;
+ifstream parameters_stream;
+ofstream fetch_stream, decode_stream, execute_stream, memory_stream, writeback_stream;
+ofstream data_forwarding_stream, stalling_stream, flushing_stream;
 
 map<string, char> hex_dict = {
     {"0000", '0'},
@@ -89,13 +105,19 @@ uint32_t arithmeticRightShift(uint32_t x, uint32_t n) {
 void InitializeFileStreams() {
     error_stream.open(error_file);
     if (!error_stream.is_open()) {
-        cout << "Couldn't open error logging file\n";
+        cout << "Couldn't open error logging file" << endl;
         return;
     }
     
     stats_stream.open(stats_file);
     if (!stats_stream.is_open()) {
-        cout << "Couldn't open stats file\n";
+        error_stream << "Couldn't open stats file" << endl;
+        return;
+    }
+
+    parameters_stream.open(parameters_file);
+    if (!parameters_stream.is_open()) {
+        error_stream << "Couldn't open parameters file" << endl;
         return;
     }
 }
@@ -103,4 +125,5 @@ void InitializeFileStreams() {
 void CloseFileStreams() {
     error_stream.close();
     stats_stream.close();
+    parameters_stream.close();
 }

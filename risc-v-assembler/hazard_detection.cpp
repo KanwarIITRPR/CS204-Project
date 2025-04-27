@@ -43,7 +43,10 @@ void HazardDetectionUnit::CalculateDataDependency(Instruction current_instructio
 bool HazardDetectionUnit::IsNextDependent() {
     if (IsNullInstruction(simulator -> instructions[0])) return false;
     CalculateDataDependency(simulator -> instructions[0], simulator -> instructions[1], simulator -> instructions[2]);
-    return dependency_A_EX || dependency_A_MEM || dependency_B_EX || dependency_B_MEM;
+    bool dependent = dependency_A_EX || dependency_A_MEM || dependency_B_EX || dependency_B_MEM;
+    
+    CalculateDataDependency();
+    return dependent;
 }
 
 bool HazardDetectionUnit::hasEXtoEXDependency() {

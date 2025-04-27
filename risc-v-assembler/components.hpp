@@ -194,7 +194,7 @@ class HazardDetectionUnit {
         bool hasMEMtoEXDependency();
         // Instruction NextinstructionForDependency(Instruction current_instruction);
 
-        uint8_t cycles_to_stall = 0;
+        uint32_t cycles_to_stall = 0;
         // uint8_t stall_index = 0;
         bool next_cycle_stall = false;
 
@@ -283,6 +283,8 @@ class PipelinedSimulator {
 
         void PrintInstructionInfo(Instruction instruction);
         void LogStats();
+        void WriteInstructions();
+        void WritePipelineStats();
 
         InterStageRegisters inter_stage;
         InterStageRegisters buffer;

@@ -4,12 +4,11 @@ bool IsNullInstruction(Instruction instruction) { return instruction.machine_cod
 
 void PipelinedSimulator::Reset_x0() { register_file[0] = 0;}
 
-// 
 void PipelinedSimulator::Run(char** argV, bool each_stage = true) {
     while (!finished) RunInstruction(each_stage);
     cout << "Program Ran Successfully!" << endl;
 }
-// 
+
 void PipelinedSimulator::Step(char** argV, bool each_stage = true) {
     while (!finished) {
         cin.get();
@@ -257,6 +256,7 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
         }
     }
 
+    WriteInstructions();
     if (printFetchedInstructionDetails) PrintInstructionInfo(instructions[0]);
     if (printInstructions) PrintInstructions();
     if (specified_instruction) PrintSpecifiedPipelineRegisters();
@@ -282,6 +282,7 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
         }
     }
     
+    WritePipelineStats();
     UpdateBufferRegisters();
 
     finished = true;
@@ -291,6 +292,19 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
 }
 
 void PipelinedSimulator::Flush() {
+    flushing_stream.open(flushing_output);
+    if (!flushing_stream.is_open()) {
+        error_stream << "Couldn't open flushing logger" << endl;
+        return;
+    }
+
+    flushing_stream << "Flushing" << endl;
+    if (!IsNullInstruction(instructions[0])) flushing_stream << instructions[0].literal << endl;
+    if (!IsNullInstruction(instructions[1])) flushing_stream << instructions[1].literal << endl;
+    flushing_stream << "due to " << instructions[2].literal << endl;
+
+    flushing_stream.close();
+
     instructions[0] = NULL_INSTRUCTION;
     instructions[1] = NULL_INSTRUCTION;
 
@@ -739,35 +753,112 @@ void PipelinedSimulator::LogStats() {
     stats_stream.close();
 }
 
+void PipelinedSimulator::WriteInstructions() {
+    fetch_stream.open(fetch_output);
+    if (!fetch_stream.is_open()) {
+        error_stream << "Couldn't open fetch logger" << endl;
+        return;
+    }
+
+    fetch_stream << instructions[0].literal << endl;
+    fetch_stream.close();
+    
+    decode_stream.open(decode_output);
+    if (!decode_stream.is_open()) {
+        error_stream << "Couldn't open decode logger" << endl;
+        return;
+    }
+    
+    decode_stream << instructions[1].literal << endl;
+    decode_stream.close();
+    
+    execute_stream.open(execute_output);
+    if (!execute_stream.is_open()) {
+        error_stream << "Couldn't open execute logger" << endl;
+        return;
+    }
+    
+    execute_stream << instructions[2].literal << endl;
+    execute_stream.close();
+    
+    memory_stream.open(memory_output);
+    if (!memory_stream.is_open()) {
+        error_stream << "Couldn't open memory access logger" << endl;
+        return;
+    }
+    
+    memory_stream << instructions[3].literal << endl;
+    memory_stream.close();
+    
+    writeback_stream.open(writeback_output);
+    if (!writeback_stream.is_open()) {
+        error_stream << "Couldn't open writeback logger" << endl;
+        return;
+    }
+    
+    writeback_stream << instructions[4].literal << endl;
+    writeback_stream.close();
+}
+
+void PipelinedSimulator::WritePipelineStats() {
+    data_forwarding_stream.open(data_forwarding_output);
+    if (!data_forwarding_stream.is_open()) {
+        error_stream << "Couldn't open data forwarding logger" << endl;
+        return;
+    }
+
+    if (hdu.hasEXtoEXDependency()) {
+        data_forwarding_stream << "EX to EX data forwarding between " << instructions[2].literal  << " to " << instructions[1].literal;
+        if (hdu.dependency_A_EX) data_forwarding_stream << " with RS1 dependent" << endl;
+        else if (hdu.dependency_B_EX) data_forwarding_stream << " with RS2 dependent" << endl;
+    }
+
+    if (hdu.hasMEMtoEXDependency()) {
+        data_forwarding_stream << "MEM to EX data forwarding between " << instructions[3].literal  << " to " << instructions[1].literal;
+        if (hdu.dependency_A_MEM) data_forwarding_stream << " with RS1 dependent" << endl;
+        else if (hdu.dependency_B_MEM) data_forwarding_stream << " with RS2 dependent" << endl;
+    }
+
+    data_forwarding_stream.close();
+    
+    stalling_stream.open(stalling_output);
+    if (!stalling_stream.is_open()) {
+        error_stream << "Couldn't open stalling logger" << endl;
+        return;
+    }
+
+    stalling_stream << "Cycles stalled: " << hdu.cycles_to_stall << endl;
+    stalling_stream << "Instructions stalled: " << endl;
+    for (size_t i = 0; i < PIPELINE_STAGES; i++) {
+        if (instructions[i].is_stalled) stalling_stream << instructions[i].literal << endl;
+    }
+    stalling_stream.close();
+}
+
 bool Debug::debug = true;
 int Debug::debug_count = 0;
 
 int main(int argC, char** argV) {
     InitializeFileStreams();
-    // if (argC < 3) {
-    //     cerr << "Usage: " << argV[0] << " <input.asm> <output.mc>" << endl;
-    //     return 1;
-    // }
 
-    // PipelinedSimulator sim(argV[1], argV[2]);
-    int run_time = (argC > 1) ? GetDecimalNumber(argV[1]) : 2;
-    if (argC > 2) (GetDecimalNumber(argV[2]) != 0) ? Debug::set(1) : Debug::set(0);
-    PipelinedSimulator sim(std_input_file, std_output_file);
-    sim.SetKnob3((argC > 3) ? GetDecimalNumber(argV[3]) : 1); // Register File
-    sim.SetKnob4((argC > 4) ? GetDecimalNumber(argV[4]) : 1); // Pipeline Registers
-    sim.SetKnob5((argC > 5) ? GetDecimalNumber(argV[5]) : 1); // Specific Instruction
-    sim.SetKnob7((argC > 6) ? GetDecimalNumber(argV[6]) : 1); // Instrctions in Pipeline
-    sim.SetKnob8((argC > 7) ? GetDecimalNumber(argV[7]) : 1); // Fetched Instruction Details
+    string assembly_file, machine_file;
+    parameters_stream >> assembly_file >> machine_file;
 
-    if (argC > 8 && GetDecimalNumber(argV[8])) sim.Run(argV, false);
-    else sim.Step(argV, false);
-    // for (size_t i = 0; i < run_time; i++) {
-    //     sim.RunInstruction();
-    //     cout << "======================================================" << endl;
-    // }
+    const int INPUT_PARAMETERS = 6;
+    int parameters[INPUT_PARAMETERS];
+    for (size_t i = 0; i < INPUT_PARAMETERS; i++) parameters_stream >> parameters[i];
 
-    sim.LogStats();
+    PipelinedSimulator simulator(assembly_file, machine_file);
+    Debug::set(parameters[0]);
+    simulator.SetKnob1(parameters[1]);
+    simulator.SetKnob2(parameters[2]);
+    simulator.SetKnob3(parameters[3]);
+    simulator.SetKnob4(parameters[4]);
+    simulator.SetKnob5(parameters[5]);
+    simulator.SetKnob6(parameters[6]);
 
-    sim.fin.close();
+    if (parameters[7] == 1) simulator.Run(argV, false);
+    else simulator.Step(argV, false);
+
     CloseFileStreams();
 }
