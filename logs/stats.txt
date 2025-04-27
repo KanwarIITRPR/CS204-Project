@@ -1,0 +1,12 @@
+Clock Cycles: 103
+Instructions Executed: 78
+CPI: 1.32051
+Data Transfers: 21
+ALU Instructions Executed: 66
+Control Instructions Executed: 24
+Stalls in the pipeline: 20
+Data hazards: 30
+Control hazards: 11
+Branch Mispredictions: 4
+Stalls due to data hazards: 0
+Stalls due to control hazards: 20

@@ -182,9 +182,17 @@ class HazardDetectionUnit {
         map<uint32_t, pair<bool, bool>> data_dependency_bits;
         map<uint32_t, pair<uint32_t, uint32_t>> data_dependency_map;
 
-        void ExtractDataDependencies();
-        bool HasDataDependency(Instruction premier_instruction, Instruction former_instruction);
-        Instruction NextinstructionForDependency(Instruction current_instruction);
+        bool dependency_A_EX, dependency_A_MEM;
+        bool dependency_B_EX, dependency_B_MEM;
+
+        // void ExtractDataDependencies();
+        pair<bool, bool> GetDataDependency(Instruction premier_instruction, Instruction former_instruction);
+        void CalculateDataDependency();
+        void CalculateDataDependency(Instruction current_instruction, Instruction EX_instruction, Instruction MEM_instruction);
+        bool IsNextDependent();
+        bool hasEXtoEXDependency();
+        bool hasMEMtoEXDependency();
+        // Instruction NextinstructionForDependency(Instruction current_instruction);
 
         uint8_t cycles_to_stall = 0;
         // uint8_t stall_index = 0;

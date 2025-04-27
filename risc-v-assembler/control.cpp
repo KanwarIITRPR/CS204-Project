@@ -8,40 +8,8 @@ void ControlCircuit::UpdateControlSignals() {
 }
 
 void ControlCircuit::UpdateDecodeSignals() {
-    bool data_forwarding_A_EX = false, data_forwarding_B_EX = false, data_forwarding_A_MEM = false, data_forwarding_B_MEM = false;
-    if (simulator -> hasDataForwarding && !IsNullInstruction(simulator -> instructions[2])) {
-        Debug::log("Signalling data forwarding EX to EX: " + simulator -> instructions[2].literal + " to " + simulator -> instructions[1].literal);
-        auto dependent_pair = simulator -> hdu.data_dependency_bits.find(simulator -> instructions[2].address);
-        if (dependent_pair != simulator -> hdu.data_dependency_bits.end()) {
-            Debug::log(to_string((*dependent_pair).second.first));
-            Debug::log("Forwarder address: " + to_string(simulator -> hdu.data_dependency_map.at(simulator -> instructions[2].address).first));
-            Debug::log("Current address: " + to_string(simulator -> instructions[1].address));
-        }
-        if (simulator -> instructions[1].rs1 == simulator -> instructions[2].rd || simulator -> instructions[1].rs2 == simulator -> instructions[2].rd) {
-            data_forwarding_A_EX = simulator -> forwarding_unit.CheckForwardA_EX(simulator -> instructions[1].rs1);
-            data_forwarding_B_EX = simulator -> forwarding_unit.CheckForwardB_EX(simulator -> instructions[1].rs2);
-        }
-        Debug::log("Data forwarding EX to EX: " + to_string(data_forwarding_A_EX) + " (rd and rs1) & " + to_string(data_forwarding_B_EX) + " (rd and rs2)");
-    }
-    
-    if (simulator -> hasDataForwarding && !IsNullInstruction(simulator -> instructions[3])) {
-        Debug::log("Signalling data forwarding MEM to EX: " + simulator -> instructions[3].literal + " to " + simulator -> instructions[1].literal);
-        auto dependent_pair = simulator -> hdu.data_dependency_bits.find(simulator -> instructions[3].address);
-        if (dependent_pair != simulator -> hdu.data_dependency_bits.end()) {
-            Debug::log(to_string((*dependent_pair).second.second));
-            Debug::log("Forwarder address: " + to_string(simulator -> hdu.data_dependency_map.at(simulator -> instructions[3].address).second));
-            Debug::log("Current address: " + to_string(simulator -> instructions[1].address));
-        }
-        Debug::log("Decode's rs1: " + to_string(simulator -> instructions[1].rs1) + "Decode's rs2: " + to_string(simulator -> instructions[1].rs2) + "Memory Access's rd: " + to_string(simulator -> instructions[3].rd));
-        if (simulator -> instructions[1].rs1 == simulator -> instructions[3].rd || simulator -> instructions[1].rs2 == simulator -> instructions[3].rd) {
-                data_forwarding_A_MEM = simulator -> forwarding_unit.CheckForwardA_MEM(simulator -> instructions[1].rs1);
-                data_forwarding_B_MEM = simulator -> forwarding_unit.CheckForwardB_MEM(simulator -> instructions[1].rs2);
-        }
-        Debug::log("Data forwarding MEM to EX: " + to_string(data_forwarding_A_MEM) + " (rd and rs1) & " + to_string(data_forwarding_B_MEM) + " (rd and rs2)");
-    }
-
-    if (data_forwarding_A_EX) MuxA = 0b100;
-    else if (data_forwarding_A_MEM) MuxA = 0b101;
+    if (simulator -> hasDataForwarding && simulator -> hdu.dependency_A_EX) MuxA = 0b100;
+    else if (simulator -> hasDataForwarding && simulator -> hdu.dependency_A_MEM) MuxA = 0b101;
     else
         switch (simulator -> instructions[1].opcode) {
         case 0b0110011: // R-Type
@@ -74,7 +42,7 @@ void ControlCircuit::UpdateDecodeSignals() {
         default: return;
         }
 
-    if (data_forwarding_B_EX)
+    if (simulator -> hasDataForwarding && simulator -> hdu.dependency_B_EX)
         switch (simulator -> instructions[1].opcode) {
         case 0b0100011: // S-Type
             MuxB = 0b110;
@@ -83,7 +51,7 @@ void ControlCircuit::UpdateDecodeSignals() {
             MuxB = 0b101;
             break;
         }
-    else if (data_forwarding_B_MEM)
+    else if (simulator -> hasDataForwarding && simulator -> hdu.dependency_B_MEM)
         switch (simulator -> instructions[1].opcode) {
         case 0b0100011: // S-Type
             MuxB = 0b1000;
@@ -386,7 +354,7 @@ void ControlCircuit::UpdateWritebackSignals() {
 }
 
 void ControlCircuit::UpdateIAGSignals() {
-    if (simulator -> instructions[2].literal.substr(0, simulator -> instructions[2].literal.find(" ")) == "jalr") { 
+    if (simulator -> instructions[2].opcode == 0b1100111) { 
         MuxPC = 0b1; 
         simulator -> control_instructions += 1;
         simulator -> control_hazards += 1;

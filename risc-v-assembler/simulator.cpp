@@ -89,9 +89,9 @@ void PipelinedSimulator::InitialParse() {
     Debug::log("Reset machine file as input");
 
     btb.printTable();
-    hdu.ExtractDataDependencies();
+    // hdu.ExtractDataDependencies();
 
-    for (auto pair: hdu.data_dependency_map) Debug::log(to_string(pair.first) + ": (" + to_string(pair.second.first) + ", " + to_string(pair.second.second) + ")");
+    // for (auto pair: hdu.data_dependency_map) Debug::log(to_string(pair.first) + ": (" + to_string(pair.second.first) + ", " + to_string(pair.second.second) + ")");
     memory.PrintDataMemory();
 }
 
@@ -213,6 +213,7 @@ Instruction PipelinedSimulator::ExtractInstruction(string machine_code) {
 
 void PipelinedSimulator::RunInstruction(bool each_stage = true) {
     ShiftInstructionsStage();
+    hdu.CalculateDataDependency();
     control.UpdateControlSignals();
 
     if (!IsNullInstruction(instructions[4]) && !instructions[4].is_stalled) {
@@ -269,35 +270,15 @@ void PipelinedSimulator::RunInstruction(bool each_stage = true) {
         hdu.next_cycle_stall = false;
     }
 
-    // if (!IsNullInstruction(instructions[1]) && hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
-    //     auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
-    //     if (dependency_bits.first) {
-    //         instructions[0].is_stalled = true;
-    //         hdu.cycles_to_stall = 2;
-    //         // hdu.stall_index = 1;
-    //     } else if (dependency_bits.second) {
-    //         // instructions[0].is_stalled = true;
-    //         hdu.next_cycle_stall = true;
-    //         // hdu.stall_index = -1;
-    //     }
-    // }
-
-    if (!IsNullInstruction(instructions[1]) && hdu.data_dependency_bits.find(instructions[1].address) != hdu.data_dependency_bits.end()) {
+    if (hdu.IsNextDependent()) {
         if (!hasDataForwarding) {
-            auto dependency_bits = hdu.data_dependency_bits.at(instructions[1].address);
-            if (dependency_bits.first) {
+            if (hdu.hasEXtoEXDependency()) {
                 instructions[0].is_stalled = true;
                 hdu.cycles_to_stall = 2;
-            } else if (dependency_bits.second) {
-                hdu.next_cycle_stall = true;
-            }
-        }
-        // When data forwarding is enabled, we only need to stall for load-use hazards
-        else if (hasDataForwarding) {
-            if (IsLoadOperation(instructions[1].opcode) && hdu.data_dependency_bits.at(instructions[1].address).first) {
-                instructions[0].is_stalled = true;
-                hdu.cycles_to_stall = 1;
-            }
+            } else if (hdu.hasMEMtoEXDependency()) hdu.next_cycle_stall = true;
+        } else if (IsLoadOperation(instructions[1].opcode) && hdu.hasEXtoEXDependency()) {
+            instructions[0].is_stalled = true;
+            hdu.cycles_to_stall = 1;
         }
     }
     
